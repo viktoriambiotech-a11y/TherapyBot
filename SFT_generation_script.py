@@ -396,15 +396,18 @@ def call_llm(
     max_output_tokens: int = 256
 ) -> str:
     """
-    Thin wrapper around the OpenAI Completions API with error handling.
+    Thin wrapper around the OpenAI Chat Completions API with error handling.
     """
     try:
-        response = client.completions.create(
+        response = client.chat.completions.create(
             model=model,
-            prompt=f"{instructions}\n\n{input_text}",
+            messages=[
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": input_text},
+            ],
             max_tokens=max_output_tokens,
         )
-        return response.choices[0].text.strip()
+        return response.choices[0].message.content.strip()
     except Exception as e:
         # Print the error and return a placeholder message
         print(f"\n--- ERROR DURING API CALL ---")
