@@ -351,6 +351,10 @@ class DialogueState(TypedDict):
         max_turns: Target total turns.
         turn_index: Current 0-based turn count.
         strategy_history: List of strategy IDs used so far.
+        patient_resolution_status: Boolean indicating if the patient has achieved resolution.
+        dialogue_agenda_phase: The current phase of the dialogue agenda.
+        patient_state_summary: A summary of the patient's state.
+        therapist_micro_commitment: A micro-commitment from the therapist.
     """
     history: List[Dict[str, str]]
     patient_profile: str
@@ -359,6 +363,10 @@ class DialogueState(TypedDict):
     max_turns: int
     turn_index: int
     strategy_history: List[str]
+    patient_resolution_status: bool
+    dialogue_agenda_phase: str
+    patient_state_summary: str
+    therapist_micro_commitment: str
 
 
 DIFFICULTY_DESCRIPTIONS = {
@@ -388,16 +396,15 @@ def call_llm(
     max_output_tokens: int = 256
 ) -> str:
     """
-    Thin wrapper around the OpenAI Responses API with error handling.
+    Thin wrapper around the OpenAI Completions API with error handling.
     """
     try:
-        response = client.responses.create(
+        response = client.completions.create(
             model=model,
-            instructions=instructions,
-            input=input_text,
-            max_output_tokens=max_output_tokens,
+            prompt=f"{instructions}\n\n{input_text}",
+            max_tokens=max_output_tokens,
         )
-        return response.output_text.strip()
+        return response.choices[0].text.strip()
     except Exception as e:
         # Print the error and return a placeholder message
         print(f"\n--- ERROR DURING API CALL ---")
@@ -464,6 +471,41 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
         max_output_tokens=128,
     )
 
+    # Generate patient state summary
+    patient_summary_instructions = (
+        "Analyze the patient's message and summarize their state. "
+        "Provide a compact summary covering craving, trigger salience, "
+        "confidence, and recent lapse flags."
+    )
+    patient_summary_prompt = (
+        f"Patient's message: '{patient_reply}'\n\n"
+        "Generate a structured summary of the patient's current state."
+    )
+    patient_state_summary = call_llm(
+        model=MODEL_PATIENT,
+        instructions=patient_summary_instructions,
+        input_text=patient_summary_prompt,
+        max_output_tokens=64,
+    )
+
+    # Analyze for resolution
+    resolution_instructions = (
+        "Analyze the patient's message for resolution. If the patient "
+        "expresses sufficient motivation and confidence to end the "
+        "dialogue, return 'true'. Otherwise, return 'false'."
+    )
+    resolution_prompt = (
+        f"Patient's message: '{patient_reply}'\n\n"
+        "Has the patient indicated resolution?"
+    )
+    resolution_status = call_llm(
+        model=MODEL_PATIENT,
+        instructions=resolution_instructions,
+        input_text=resolution_prompt,
+        max_output_tokens=8,
+    )
+    patient_resolution_status = "true" in resolution_status.lower()
+
     new_history = state["history"] + [
         {"role": "patient", "content": patient_reply}
     ]
@@ -472,19 +514,44 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
     return {
         "history": new_history,
         "turn_index": new_turn_index,
+        "patient_state_summary": patient_state_summary,
+        "patient_resolution_status": patient_resolution_status,
     }
 
 # Therapist Node Logic
 
-def pick_next_strategy(strategy_history: List[str]) -> Dict[str, str]:
+def pick_next_strategy(
+    strategy_history: List[str], dialogue_agenda_phase: str
+) -> Dict[str, str]:
     """
-    Pick a strategy ID that hasn't been used recently to encourage variety.
-    Simple heuristic: avoid last 2 strategies if possible.
+    Pick a strategy based on the current dialogue agenda phase.
     """
+    dialogue_agenda_mapping = {
+        "Rapport & Goal Alignment": [
+            "mi_agenda", "mi_oars", "mi_values"
+        ],
+        "Episode Clarification": [
+            "cbt_functional_analysis", "cbt_trigger_mapping"
+        ],
+        "Plan Formulation": [
+            "cbt_coping_skills", "cbt_problem_solving"
+        ],
+        "Next-step Micro-commitment": [
+            "act_goals", "act_crisis_plan"
+        ],
+    }
+
+    agenda_strategies = dialogue_agenda_mapping.get(
+        dialogue_agenda_phase, ALL_STRATEGIES
+    )
+
     used_recent = set(strategy_history[-2:])
+
     candidates = [
-        s for s in ALL_STRATEGIES if s["id"] not in used_recent
-    ] or ALL_STRATEGIES
+        s for s in ALL_STRATEGIES
+        if s["id"] in agenda_strategies and s["id"] not in used_recent
+    ] or [s for s in ALL_STRATEGIES if s["id"] in agenda_strategies]
+
     return random.choice(candidates)
 
 
@@ -495,10 +562,13 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
     history_text = render_history_for_prompt(state["history"])
 
     # Choose a strategy for this turn
-    strategy = pick_next_strategy(state["strategy_history"])
+    strategy = pick_next_strategy(
+        state["strategy_history"], state["dialogue_agenda_phase"]
+    )
     
     strategy_text = (
-        f"Therapeutic strategy to emphasize this turn:\n"
+        "Therapeutic strategy to emphasize this turn:\n"
+        f"- Current Agenda Phase: {state['dialogue_agenda_phase']}\n"
         f"- Name: {strategy['name']}\n"
         f"- Description: {strategy['description']}\n\n"
         "You should apply this strategy in a subtle, natural way, without "
@@ -512,6 +582,8 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
         "substance use and recovery.\n"
         "Use motivational interviewing (MI) and cognitive behavioral "
         "therapy (CBT) principles.\n"
+        "Use Open-ended questions, Affirmations, Reflective listening, "
+        "and Summarizing.\n"
         "Prioritize empathy, reflective listening, and collaborative "
         "problem-solving over giving orders.\n"
         "Do not provide medical diagnoses or medication instructions.\n"
@@ -541,16 +613,47 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
     new_turn_index = state["turn_index"] + 1
     new_strategy_history = state["strategy_history"] + [strategy["id"]]
 
+    # Generate micro-commitment
+    commitment_instructions = (
+        "Based on the therapist's reply, generate a measurable "
+        "micro-commitment with a deadline and success criterion."
+    )
+    commitment_prompt = (
+        f"Therapist's reply: '{therapist_reply}'\n\n"
+        "Generate a micro-commitment for the patient."
+    )
+    therapist_micro_commitment = call_llm(
+        model=MODEL_THERAPIST,
+        instructions=commitment_instructions,
+        input_text=commitment_prompt,
+        max_output_tokens=64,
+    )
+
+    # Advance dialogue agenda
+    agenda_phases = [
+        "Rapport & Goal Alignment", "Episode Clarification",
+        "Plan Formulation", "Next-step Micro-commitment"
+    ]
+    current_phase_index = agenda_phases.index(state["dialogue_agenda_phase"])
+    if current_phase_index < len(agenda_phases) - 1:
+        new_dialogue_agenda_phase = agenda_phases[current_phase_index + 1]
+    else:
+        new_dialogue_agenda_phase = state["dialogue_agenda_phase"]
+
     return {
         "history": new_history,
         "turn_index": new_turn_index,
         "strategy_history": new_strategy_history,
+        "therapist_micro_commitment": therapist_micro_commitment,
+        "dialogue_agenda_phase": new_dialogue_agenda_phase,
     }
 
 # Graph Routing and Construction
 
 def route_after_patient(state: DialogueState) -> str:
     """Determine next node after patient speaks."""
+    if state["patient_resolution_status"]:
+        return END
     if state["turn_index"] >= state["max_turns"]:
         return END
     return "therapist"
@@ -619,6 +722,10 @@ initial_state: DialogueState = {
     "max_turns": 60,
     "turn_index": 0,
     "strategy_history": [],
+    "patient_resolution_status": False,
+    "dialogue_agenda_phase": "Rapport & Goal Alignment",
+    "patient_state_summary": "",
+    "therapist_micro_commitment": "",
 }
 
 print("Starting simulation...")
