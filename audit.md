@@ -7,7 +7,7 @@ This document outlines the changes required to enhance the dialogue system to be
 ### 1. Dialogue Termination Condition
 
 - **Current:** The dialogue terminates after a fixed number of turns (`max_turns`).
-- **Required:** The dialogue should terminate early if the patient indicates resolution (e.g., expresses sufficient motivation and confidence).
+- **[x] Required:** The dialogue should terminate early if the patient indicates resolution (e.g., expresses sufficient motivation and confidence).
 - **Implementation:**
     - In the `patient_node`, after generating the patient's reply, analyze the text for keywords or sentiment indicating resolution.
     - Add a new state to `DialogueState` to track patient's resolution status.
@@ -16,7 +16,7 @@ This document outlines the changes required to enhance the dialogue system to be
 ### 2. Dialogue Agenda
 
 - **Current:** The dialogue is driven by a random selection of strategies.
-- **Required:** The dialogue should follow a specific agenda:
+- **[x] Required:** The dialogue should follow a specific agenda:
     1. Rapport & Goal Alignment
     2. Episode Clarification
     3. Plan Formulation
@@ -29,7 +29,7 @@ This document outlines the changes required to enhance the dialogue system to be
 ### 3. Patient State Summary
 
 - **Current:** The patient's state is implicit in the dialogue history.
-- **Required:** The Patient Agent should provide a compact state summary each turn (craving, trigger salience, confidence, recent lapse flags).
+- **[x] Required:** The Patient Agent should provide a compact state summary each turn (craving, trigger salience, confidence, recent lapse flags).
 - **Implementation:**
     - Add a new field to the `DialogueState` to store the patient's state summary.
     - In the `patient_node`, after generating the patient's utterance, also generate a state summary. This could be a structured dictionary or a simple string.
@@ -38,7 +38,7 @@ This document outlines the changes required to enhance the dialogue system to be
 ### 4. Therapist Micro-commitment
 
 - **Current:** The therapist provides a conversational reply.
-- **Required:** The Therapy Agent should generate a measurable micro-commitment (deadline and success criterion) in addition to the utterance.
+- **[x] Required:** The Therapy Agent should generate a measurable micro-commitment (deadline and success criterion) in addition to the utterance.
 - **Implementation:**
     - Add a new field to the `DialogueState` to store the micro-commitment.
     - In the `therapist_node`, after generating the therapist's reply, generate a micro-commitment. This could be a separate LLM call or part of the same call with structured output.
@@ -46,7 +46,7 @@ This document outlines the changes required to enhance the dialogue system to be
 ### 5. Update `therapist_instructions`
 
 - **Current:** The `therapist_instructions` provides general guidance.
-- **Required:** Add the following to `therapist_instructions`:
+- **[x] Required:** Add the following to `therapist_instructions`:
     - Use Open-ended questions, Affirmations, Reflective listening, Summarizing.
 - **Implementation:**
     - Directly modify the `therapist_instructions` string in the script.
@@ -54,7 +54,7 @@ This document outlines the changes required to enhance the dialogue system to be
 ### 6. Update `strategy_text`
 
 - **Current:** The `strategy_text` is based on a randomly selected strategy.
-- **Required:** The `strategy_text` should instruct the therapist to pick an appropriate strategy or action tool based on the log and current stressors.
+- **[x] Required:** The `strategy_text` should instruct the therapist to pick an appropriate strategy or action tool based on the log and current stressors.
 - **Implementation:**
     - This is related to the Dialogue Agenda change. The `pick_next_strategy` function will be updated to be more intelligent, and the `strategy_text` will be updated to reflect this.
 
