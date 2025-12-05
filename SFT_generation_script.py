@@ -26,8 +26,8 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Model Configuration
-MODEL_PATIENT = "gemini-1.5-flash-latest"
-MODEL_THERAPIST = "gemini-1.5-flash-latest"
+MODEL_PATIENT = "gemini-1.5-flash"
+MODEL_THERAPIST = "gemini-1.5-flash"
 # Updated to valid model name format if needed
 # MODEL_THERAPIST = "gpt-5-mini"
 
