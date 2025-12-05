@@ -4,7 +4,7 @@ This document provides instructions for AI agents working with this codebase.
 
 ## Model Usage
 
-This project exclusively uses the `gemini-1.5-flash` model for all generative tasks. Do not use any other model.
+This project exclusively uses the `gemini-2.5-flash` model for all generative tasks. Do not use any other model.
 
 ## Coding Standards
 
