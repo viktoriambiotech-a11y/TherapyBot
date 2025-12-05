@@ -26,8 +26,8 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Model Configuration
-MODEL_PATIENT = "gemini-1.5-flash-latest"
-MODEL_THERAPIST = "gemini-1.5-flash-latest"
+MODEL_PATIENT = "gemini-2.5-flash"
+MODEL_THERAPIST = "gemini-2.5-flash"
 # Updated to valid model name format if needed
 # MODEL_THERAPIST = "gpt-5-mini"
 
@@ -404,7 +404,13 @@ def call_llm(
             f"{instructions}\n\n{input_text}",
             generation_config=genai.types.GenerationConfig(
                 max_output_tokens=max_output_tokens
-            )
+            ),
+            safety_settings=[
+                {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_NONE'},
+                {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_NONE'},
+                {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_NONE'},
+                {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_NONE'},
+            ]
         )
         return response.text.strip()
     except Exception as e:
