@@ -13,21 +13,21 @@ import random
 from datetime import datetime
 from typing import TypedDict, List, Literal, Dict, Any
 
+import google.generativeai as genai
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
-from openai import OpenAI
 
-# Load environment variables (OPENAI_API_KEY)
+
+# Load environment variables
 load_dotenv()
 
-# Initialize OpenAI Client
-# NOTE: Using environment variables for security.
-# Ensure OPENAI_API_KEY is set in your .env file.
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize Google Generative AI Client
+# Ensure GOOGLE_API_KEY is set in your .env file.
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Model Configuration
-MODEL_PATIENT = "gpt-4o"
-MODEL_THERAPIST = "gpt-4o"
+MODEL_PATIENT = "gemini-1.5-flash-latest"
+MODEL_THERAPIST = "gemini-1.5-flash-latest"
 # Updated to valid model name format if needed
 # MODEL_THERAPIST = "gpt-5-mini"
 
@@ -396,18 +396,17 @@ def call_llm(
     max_output_tokens: int = 256
 ) -> str:
     """
-    Thin wrapper around the OpenAI Chat Completions API with error handling.
+    Thin wrapper around the Google Generative AI API with error handling.
     """
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": instructions},
-                {"role": "user", "content": input_text},
-            ],
-            max_tokens=max_output_tokens,
+        model = genai.GenerativeModel(model)
+        response = model.generate_content(
+            f"{instructions}\n\n{input_text}",
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=max_output_tokens
+            )
         )
-        return response.choices[0].message.content.strip()
+        return response.text.strip()
     except Exception as e:
         # Print the error and return a placeholder message
         print(f"\n--- ERROR DURING API CALL ---")
