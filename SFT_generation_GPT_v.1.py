@@ -630,7 +630,7 @@ the patient’s feedback, adjusts based on their response, and explores challeng
 finalizing the approach.
 6. Maintain a collaborative and patient-centered approach, where solutions emerge naturally
 through dialogue rather than being imposed by the.
-7. Ensure the conversation spans at least 50 dialogue turns (25 from the therapist and 25 from the
+7. Ensure the conversation spans at least 60 dialogue turns (25 from the therapist and 25 from the
 patient), reflecting the depth and duration of a real therapeutic session.
 8. Use natural transitions to progress from one topic to another, ensuring the conversation feels
 organic and unhurried.
@@ -658,7 +658,7 @@ detail. - Strategies and coping mechanisms tailored to their unique experiences,
 in approaches. - Empathetic reflections from the therapist that validate the patient’s feelings
 and provide relatable examples to instill hope. - Iterative problem-solving where the therapist
 introduces, discusses, and adjusts strategies collaboratively. - A gradual, layered exploration of the
-patient’s challenges, ensuring at least 50 dialogue turns to reflect the depth of a real therapeutic
+patient’s challenges, ensuring at least 60 dialogue turns to reflect the depth of a real therapeutic
 session.
 The goal is to create a natural, empathetic, and multi-layered dialogue that feels authentic and
 provides actionable, diverse therapeutic strategies. Ensure the length and depth align with the
@@ -788,7 +788,7 @@ initial_state: DialogueState = {
     "patient_profile": example_patient_profile.strip(),
     "difficulty": "medium",
     "difficulty_description": DIFFICULTY_DESCRIPTIONS["medium"],
-    "max_turns": 50,
+    "max_turns": 60,
     "turn_index": 0,
     "strategy_history": [],
     "patient_resolution_status": False,
