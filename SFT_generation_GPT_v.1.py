@@ -10,6 +10,7 @@ Recreates a single-session, multi-turn role-play setup:
 import json
 import os
 import random
+from collections import Counter
 from datetime import datetime
 from typing import TypedDict, List, Literal, Dict, Any
 
@@ -98,6 +99,24 @@ MI_STRATEGIES = [
             "especially around substance use and recovery."
         ),
     },
+    {
+        "id": "mi_safety_respect",
+        "name": "Build safety and respect",
+        "description": (
+            "Create a safe and respectful environment by being empathetic, "
+            "non-judgmental, and collaborative. Use affirmations and "
+            "reflective listening to build rapport."
+        ),
+    },
+    {
+        "id": "mi_roll_with_resistance",
+        "name": "Roll with resistance",
+        "description": (
+            "Avoid arguing or confronting resistance. Instead, reflect the "
+            "patient's perspective and explore their ambivalence. Reframe "
+            "resistance as a sign of the patient's engagement and autonomy."
+        ),
+    },
 ]
 
 CBT_STRATEGIES = [
@@ -173,6 +192,36 @@ CBT_STRATEGIES = [
             "problem, brainstorm options, pick one step, and plan when/how "
             "to try it."
         ),
+    },
+    {
+        "id": "cbt_structured_routine",
+        "name": "Structured daily routine",
+        "description": "Collaboratively develop a structured daily routine to bring stability and reduce idle time.",
+    },
+    {
+        "id": "cbt_behavioral_activation",
+        "name": "Behavioral activation (small tasks)",
+        "description": "Encourage engagement in small, manageable tasks and activities to build momentum and self-efficacy.",
+    },
+    {
+        "id": "cbt_relaxation_grounding",
+        "name": "Relaxation and grounding techniques",
+        "description": "Introduce techniques like 5-4-3-2-1 grounding to manage anxiety and cravings.",
+    },
+    {
+        "id": "cbt_mindfulness",
+        "name": "Brief mindfulness practices",
+        "description": "Incorporate brief mindfulness exercises to improve awareness and reduce reactivity to triggers.",
+    },
+    {
+        "id": "cbt_goal_setting",
+        "name": "Goal setting and strength review",
+        "description": "Collaboratively set achievable short-term goals and review the patient's strengths.",
+    },
+    {
+        "id": "cbt_lifestyle_support",
+        "name": "Lifestyle support (sleep, nutrition, exercise)",
+        "description": "Provide guidance and support for improving lifestyle factors that impact recovery.",
     },
 ]
 
@@ -360,9 +409,7 @@ class DialogueState(TypedDict):
     turn_index: int
     strategy_history: List[str]
     patient_resolution_status: bool
-    dialogue_agenda_phase: str
     patient_state_summary: str
-    therapist_micro_commitment: str
 
 
 DIFFICULTY_DESCRIPTIONS = {
@@ -509,114 +556,155 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
 # Therapist Node Logic
 
 
-def pick_next_strategy(strategy_history: List[str], dialogue_agenda_phase: str) -> Dict[str, str]:
-    """
-    Pick a strategy based on the current dialogue agenda phase.
-    """
-    dialogue_agenda_mapping = {
-        "Rapport & Goal Alignment": ["mi_agenda", "mi_oars", "mi_values"],
-        "Episode Clarification": ["cbt_functional_analysis", "cbt_trigger_mapping"],
-        "Plan Formulation": ["cbt_coping_skills", "cbt_problem_solving"],
-        "Next-step Micro-commitment": ["act_goals", "act_crisis_plan"],
-    }
-
-    agenda_strategies = dialogue_agenda_mapping.get(dialogue_agenda_phase, ALL_STRATEGIES)
-
-    used_recent = set(strategy_history[-2:])
-
-    candidates = [s for s in ALL_STRATEGIES if s["id"] in agenda_strategies and s["id"] not in used_recent] or [
-        s for s in ALL_STRATEGIES if s["id"] in agenda_strategies
-    ]
-
-    return random.choice(candidates)
-
-
 def therapist_node(state: DialogueState) -> Dict[str, Any]:
     """
     Generates the therapist's response using MI/CBT principles.
     """
     history_text = render_history_for_prompt(state["history"])
 
-    # Choose a strategy for this turn
-    strategy = pick_next_strategy(state["strategy_history"], state["dialogue_agenda_phase"])
-
-    strategy_text = (
-        "Therapeutic strategy to emphasize this turn:\n"
-        f"- Current Agenda Phase: {state['dialogue_agenda_phase']}\n"
-        f"- Name: {strategy['name']}\n"
-        f"- Description: {strategy['description']}\n\n"
-        "You should apply this strategy in a subtle, natural way, without "
-        "labeling it explicitly. Your reply must be consistent with "
-        "motivational interviewing spirit (collaboration, empathy, respect "
-        "for autonomy) and with CBT principles when relevant."
+    # Track strategy usage
+    strategy_counts = Counter(state["strategy_history"])
+    strategy_usage_text = "\n".join(
+        [f"- {strategy}: {count} times used." for strategy, count in strategy_counts.items()]
     )
+    if not strategy_usage_text:
+        strategy_usage_text = "No strategies used yet."
 
-    therapist_instructions = (
-        "You are a supportive, thoughtful therapist helping a patient with "
-        "substance use and recovery.\n"
-        "Use motivational interviewing (MI) and cognitive behavioral "
-        "therapy (CBT) principles.\n"
-        "Use Open-ended questions, Affirmations, Reflective listening, "
-        "and Summarizing.\n"
-        "Prioritize empathy, reflective listening, and collaborative "
-        "problem-solving over giving orders.\n"
-        "Do not provide medical diagnoses or medication instructions.\n"
-        "Respond as a real therapist might: concise, warm, and practical."
+    therapist_instructions_template = """
+The following is the analysis of a patient:
+
+{user_analysis}
+
+As a therapist meeting this patient for the first time (the doctor didn’t have any information of
+patient to begin with), create a detailed, step-by-step conversation that incorporates the following
+strategies:
+Motivational Interviewing (MI): Explore the individual’s values and goals to ignite their motivation
+for change.
+Cognitive Behavioral Therapy (CBT): Identify and modify negative thought patterns and behaviors
+linked to substance use.
+Solution-Focused Brief Therapy (SFBT): Focus on the individual’s strengths and past successes
+to achieve their recovery goals.
+Peer Support Programs: Leverage group support or mutual-help networks to foster accountability
+and a sense of belonging.
+Mindfulness-Based Interventions (MBIs): Incorporate mindfulness practices to improve emotional
+regulation and reduce cravings.
+Behavioral Activation (BA): Promote engaging in meaningful activities to replace substance related
+behaviors.
+Relapse Prevention Strategies: Develop skills to recognize triggers and implement coping mechanisms
+to avoid relapse.
+Strength-Based Approach: Highlight the individual’s resilience and personal resources to empower
+recovery efforts.
+Psychoeducation on Addiction and Recovery: Educate the individual about the effects of substances
+and the benefits of recovery.
+Harm Reduction Framework: Provide strategies to minimize immediate harm while working
+towards cessation.
+Family and Social Support Involvement: Engage family or trusted individuals in the process to
+strengthen the support network.
+Self-Compassion Practices: Encourage self-kindness to build confidence and reduce guilt associated
+with substance use.
+Coping Skill Development: Equip the individual with practical skills to manage stress, anxiety,
+and other challenges without substances.
+To ensure balanced use of strategies, here is the current usage count of each strategy:
+{strategy_usage}
+When introducing coping mechanisms or steps for the patient, select from the predefined actionable
+strategies below:
+1. Explore specific hobbies or interests the patient can engage in to replace addictive behaviors
+(e.g., art, sports, volunteering).
+2. Develop a structured daily routine to bring stability and reduce idle time that might trigger
+relapse.
+3. Introduce grounding techniques such as sensory exercises or physical activities to manage
+anxiety or cravings.
+4. Suggest joining a support group or community to build social connections with individuals on
+similar journeys.
+5. Provide psychoeducation on how addiction affects the brain and emotional regulation.
+...
+18. Support the patient in finding meaningful ways to contribute to their community, such as
+mentoring, advocacy, or local initiatives, to foster a sense of purpose.
+Ensure the dialogue meets the following requirements: 1. Gradually explore the patient’s personality,
+addiction history, challenges, and triggers through multiple open-ended questions.
+2. Use multiple strategies from the above lists throughout the conversation. Avoid defaulting to
+the same few strategies and instead adapt them to the patient’s needs.
+...
+5. Engage in iterative dialogue for each solution, where the therapist introduces a strategy, seeks
+the patient’s feedback, adjusts based on their response, and explores challenges or barriers before
+finalizing the approach.
+6. Maintain a collaborative and patient-centered approach, where solutions emerge naturally
+through dialogue rather than being imposed by the.
+7. Ensure the conversation spans at least 50 dialogue turns (25 from the therapist and 25 from the
+patient), reflecting the depth and duration of a real therapeutic session.
+8. Use natural transitions to progress from one topic to another, ensuring the conversation feels
+organic and unhurried.
+9. The conversation should begin with the patient’s first utterance.
+Here is an example of a layered, empathetic dialogue:
+Patient: Hi. . . um, thanks for seeing me today. I wasn’t sure what to expect.
+Therapist: Hi Mark, I really appreciate you coming in. Starting this process can feel overwhelming,
+but I’m here to support you. What’s been on your mind lately?
+Patient: I’ve been feeling really stuck. I know I want to quit smoking, but every time I try, I just
+feel like I’m failing all over again.
+Therapist: I hear you, Mark. Quitting smoking is one of the hardest challenges anyone can take
+on, and it’s completely natural to feel this way. I’ve worked with others who’ve felt the same—they
+described it as climbing a mountain that feels too steep. But I’ve also seen them reach the top,
+step by step. Can we talk about what makes the climb feel steep for you right now?
+Patient: It’s the cravings. They just hit me out of nowhere, and I don’t know how to handle them.
+Therapist: Cravings can feel like a storm, can’t they? I worked with someone once who described
+their cravings as waves that kept crashing over them. Together, we found ways for them to ride out
+those waves, like focusing on a small activity or changing their environment. Could we explore
+some strategies that might help you ride out your cravings too?
+Patient: Sure, I guess.
+Therapist: Great. Let’s start with understanding when these cravings hit hardest. For example, is
+it during specific times of day or situations?
+The conversation should continue to explore: - The patient’s motivations, barriers, and triggers in
+detail. - Strategies and coping mechanisms tailored to their unique experiences, ensuring diversity
+in approaches. - Empathetic reflections from the therapist that validate the patient’s feelings
+and provide relatable examples to instill hope. - Iterative problem-solving where the therapist
+introduces, discusses, and adjusts strategies collaboratively. - A gradual, layered exploration of the
+patient’s challenges, ensuring at least 50 dialogue turns to reflect the depth of a real therapeutic
+session.
+The goal is to create a natural, empathetic, and multi-layered dialogue that feels authentic and
+provides actionable, diverse therapeutic strategies. Ensure the length and depth align with the
+standards of a comprehensive therapy session.
+At the end of the conversation, return the strategies used in the following format (must follow the
+following format like **Strategies:**):
+**Strategies:** Motivational Interviewing (MI), Cognitive
+Behavioral Therapy (CBT), Peer Support Programs, etc.
+"""
+
+    therapist_instructions = therapist_instructions_template.format(
+        user_analysis=state["patient_profile"], strategy_usage=strategy_usage_text
     )
 
     therapist_prompt = (
-        "Patient profile (for context; don't repeat verbatim):\n"
-        f"{state['patient_profile']}\n\n"
         "Conversation so far:\n"
         f"{history_text}\n\n"
-        f"{strategy_text}\n"
         "Now write the therapist's next reply only. "
         "Do not include 'Therapist:' labels or any narration."
     )
 
-    therapist_reply = call_llm(
+    full_response = call_llm(
         model=MODEL_THERAPIST,
         instructions=therapist_instructions,
         input_text=therapist_prompt,
-        max_output_tokens=256,
+        max_output_tokens=1024,
     )
+
+    # Parse the response to separate the dialogue from the strategies
+    if "**Strategies:**" in full_response:
+        parts = full_response.split("**Strategies:**")
+        therapist_reply = parts[0].strip()
+        strategies_used_str = parts[1].strip()
+        strategies_used = [s.strip() for s in strategies_used_str.split(",")]
+    else:
+        therapist_reply = full_response.strip()
+        strategies_used = []
 
     new_history = state["history"] + [{"role": "therapist", "content": therapist_reply}]
     new_turn_index = state["turn_index"] + 1
-    new_strategy_history = state["strategy_history"] + [strategy["id"]]
-
-    # Generate micro-commitment
-    commitment_instructions = (
-        "Based on the therapist's reply, generate a measurable "
-        "micro-commitment with a deadline and success criterion."
-    )
-    commitment_prompt = f"Therapist's reply: '{therapist_reply}'\n\n" "Generate a micro-commitment for the patient."
-    therapist_micro_commitment = call_llm(
-        model=MODEL_THERAPIST,
-        instructions=commitment_instructions,
-        input_text=commitment_prompt,
-        max_output_tokens=64,
-    )
-
-    # Advance dialogue agenda
-    agenda_phases = [
-        "Rapport & Goal Alignment",
-        "Episode Clarification",
-        "Plan Formulation",
-        "Next-step Micro-commitment",
-    ]
-    current_phase_index = agenda_phases.index(state["dialogue_agenda_phase"])
-    if current_phase_index < len(agenda_phases) - 1:
-        new_dialogue_agenda_phase = agenda_phases[current_phase_index + 1]
-    else:
-        new_dialogue_agenda_phase = state["dialogue_agenda_phase"]
+    new_strategy_history = state["strategy_history"] + strategies_used
 
     return {
         "history": new_history,
         "turn_index": new_turn_index,
         "strategy_history": new_strategy_history,
-        "therapist_micro_commitment": therapist_micro_commitment,
-        "dialogue_agenda_phase": new_dialogue_agenda_phase,
     }
 
 
@@ -672,39 +760,24 @@ app = graph.compile()
 # replace 'example_patient_profile' with synthesized profiles
 
 # Example Patient Profile
-# example_patient_profile = (
-#    "Personality Traits: Ambivalent, emotionally reactive, sometimes "
-#    "avoidant but cares about family.\n"
-#    "Substance Use History: Daily cannabis use for the past 6 years, "
-#    "multiple short attempts to cut back, no formal treatment.\n"
-#    "Significant Life Events: Recent breakup; job stress in a high-pressure "
-#    "environment; moved away from close friends.\n"
-#    "Behavioral Themes: Uses cannabis to manage anxiety and sleep; tends to "
-#    "isolate when stressed; difficulty with routines.\n"
-#    "Motivations for Substance Use: Escaping from racing thoughts and "
-#    "loneliness; fear of being unable to sleep without it.\n"
-#    "Current Motivation: Wants to reduce use but unsure about abstinence; "
-#    "worried about withdrawal, boredom, and social loss."
-# )
-
 example_patient_profile = f"""
-    The user appears to have a tendency towards self-blame ('sitting with how much of a fuck up i was'), 
-    impulsivity (struggling with stopping after one drink), and a past tendency towards irritability ('short tempered and didn't have patience'). 
-    They also display resilience and a desire for change, actively seeking help and new coping mechanisms. There's an underlying restlessness that 
-    historically drove them to seek activity or distraction.\nSubstance Use History: The user has a history of alcohol use, with their longest streak 
-    of sobriety being 2 weeks in ten years, indicating a long-standing pattern of use. They recently relapsed after 40 days of sobriety and describe 
-    'back in the cycle of insanity.' They underwent a 21-day treatment program and attended AA/SMART recovery meetings, but stopped going 
-    to the latter. They also attempted to quit multiple times and struggled with cravings even for non-alcoholic beverages resembling alcohol 
-    early in sobriety.\nSignificant Life Events: The user reached out to their job for a Leave of Absence (LOA) to go to treatment due to being 
-    'SO sad all the time' and feeling like a 'prisoner.' This marked a turning point in seeking help. No other specific major life events like job loss, 
-    divorce, or trauma are explicitly mentioned as directly related to the addiction onset.\nBehavioral Themes: The user exhibits patterns of seeking 
-    distraction ('constantly trying to distract myself with anything'), difficulty with stillness ('couldn't stand being still'), and using alcohol as 
-    a coping mechanism for stress from a 'fast paced rather exhausting job.' Prior to sobriety, they were 'short tempered and didn't have patience for 
-    anything or anyone.' During sobriety, they've noted being 'much calmer' and 'more content just sitting around.' They also show a need for 
-    'controlled chaos' through activities like concerts. Relapse is a recurring theme, and they struggle with finding alternative routines for relaxation 
-    and reward after work.\nMotivations for Alcohol Use: The user drank to cope with stress from their fast-paced job, finding it an 'everyday 
-    thing because I would be so stressed out.' Alcohol was also used to socialize and feel happy, making 'things happy and everything was just a fun time.' 
-    They also mention 'searching for anything to make me feel better internally' and escaping the feeling of being 'a fuck up.' 
+    The user appears to have a tendency towards self-blame ('sitting with how much of a fuck up i was'),
+    impulsivity (struggling with stopping after one drink), and a past tendency towards irritability ('short tempered and didn't have patience').
+    They also display resilience and a desire for change, actively seeking help and new coping mechanisms. There's an underlying restlessness that
+    historically drove them to seek activity or distraction.\nSubstance Use History: The user has a history of alcohol use, with their longest streak
+    of sobriety being 2 weeks in ten years, indicating a long-standing pattern of use. They recently relapsed after 40 days of sobriety and describe
+    'back in the cycle of insanity.' They underwent a 21-day treatment program and attended AA/SMART recovery meetings, but stopped going
+    to the latter. They also attempted to quit multiple times and struggled with cravings even for non-alcoholic beverages resembling alcohol
+    early in sobriety.\nSignificant Life Events: The user reached out to their job for a Leave of Absence (LOA) to go to treatment due to being
+    'SO sad all the time' and feeling like a 'prisoner.' This marked a turning point in seeking help. No other specific major life events like job loss,
+    divorce, or trauma are explicitly mentioned as directly related to the addiction onset.\nBehavioral Themes: The user exhibits patterns of seeking
+    distraction ('constantly trying to distract myself with anything'), difficulty with stillness ('couldn't stand being still'), and using alcohol as
+    a coping mechanism for stress from a 'fast paced rather exhausting job.' Prior to sobriety, they were 'short tempered and didn't have patience for
+    anything or anyone.' During sobriety, they've noted being 'much calmer' and 'more content just sitting around.' They also show a need for
+    'controlled chaos' through activities like concerts. Relapse is a recurring theme, and they struggle with finding alternative routines for relaxation
+    and reward after work.\nMotivations for Alcohol Use: The user drank to cope with stress from their fast-paced job, finding it an 'everyday
+    thing because I would be so stressed out.' Alcohol was also used to socialize and feel happy, making 'things happy and everything was just a fun time.'
+    They also mention 'searching for anything to make me feel better internally' and escaping the feeling of being 'a fuck up.'
     Boredom was 'excruciating' and led to drinking to avoid internal discomfort.
     Current Motivation: Wants to reduce use but unsure about abstinence; worried about withdrawal, boredom, and social loss
 
@@ -715,13 +788,11 @@ initial_state: DialogueState = {
     "patient_profile": example_patient_profile.strip(),
     "difficulty": "medium",
     "difficulty_description": DIFFICULTY_DESCRIPTIONS["medium"],
-    "max_turns": 60,
+    "max_turns": 50,
     "turn_index": 0,
     "strategy_history": [],
     "patient_resolution_status": False,
-    "dialogue_agenda_phase": "Rapport & Goal Alignment",
     "patient_state_summary": "",
-    "therapist_micro_commitment": "",
 }
 
 print("Starting simulation...")
