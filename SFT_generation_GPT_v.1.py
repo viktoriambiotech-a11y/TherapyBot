@@ -41,7 +41,7 @@ MI_STRATEGIES = [
         "description": (
             "Use 0–10 scaling questions about importance, confidence, or "
             "readiness to change. Ask the patient to pick numbers, explore "
-            "why they chose them, and gently elicit 'change talk' about what "
+            "why they chose them, and gently bring up 'change talk' about what "
             "could move the number up."
         ),
     },
@@ -58,9 +58,9 @@ MI_STRATEGIES = [
         "id": "mi_decisional_balance",
         "name": "decisional balance",
         "description": (
-            "Explore pros and cons of continuing current substance use vs. "
+            "Explore pros and cons of continuing current alcohol use versus "
             "making a change. Reflect ambivalence and highlight "
-            "patient-stated reasons for change."
+            "the reasons provided by the patient for wanting to change."
         ),
     },
     {
@@ -69,7 +69,7 @@ MI_STRATEGIES = [
         "description": (
             "Ask about what kind of person they want to be, their core "
             "values (e.g., family, health), and connect those values to "
-            "possible changes in substance use."
+            "possible changes in alcohol use."
         ),
     },
     {
@@ -81,42 +81,8 @@ MI_STRATEGIES = [
             "focus on."
         ),
     },
-    {
-        "id": "mi_oars",
-        "name": "OARS micro-skills",
-        "description": (
-            "Lean heavily on open questions, affirmations, reflective "
-            "listening, and summaries. Emphasize empathy and curiosity "
-            "rather than giving direct advice."
-        ),
-    },
-    {
-        "id": "mi_change_talk",
-        "name": "DARN–CAT change talk",
-        "description": (
-            "Elicit and reflect language about Desire, Ability, Reasons, "
-            "Need, Commitment, Activation, and Taking steps for change, "
-            "especially around substance use and recovery."
-        ),
-    },
-    {
-        "id": "mi_safety_respect",
-        "name": "Build safety and respect",
-        "description": (
-            "Create a safe and respectful environment by being empathetic, "
-            "non-judgmental, and collaborative. Use affirmations and "
-            "reflective listening to build rapport."
-        ),
-    },
-    {
-        "id": "mi_roll_with_resistance",
-        "name": "Roll with resistance",
-        "description": (
-            "Avoid arguing or confronting resistance. Instead, reflect the "
-            "patient's perspective and explore their ambivalence. Reframe "
-            "resistance as a sign of the patient's engagement and autonomy."
-        ),
-    },
+        
+   
 ]
 
 CBT_STRATEGIES = [
@@ -124,26 +90,30 @@ CBT_STRATEGIES = [
         "id": "cbt_functional_analysis",
         "name": "functional analysis of a recent episode",
         "description": (
-            "Ask about a recent use or near-use episode and unpack "
-            "antecedents, thoughts, feelings, behaviors, and consequences. "
-            "Look for patterns that maintain substance use."
-        ),
+        "Invite the patient to describe their most recent use or near-use event. "
+        "Ask about what led up to it (situations or triggers), their thoughts and emotions, "
+        "the actions they took, and what happened afterward. "
+        "Reflect any patterns that appear to contribute to continued alcohol use."
+        )
     },
+
     {
         "id": "cbt_trigger_mapping",
         "name": "trigger mapping",
         "description": (
-            "Identify people, places, times, and internal states that tend "
-            "to trigger cravings. Make the chain from trigger -> thought -> "
-            "feeling -> urge -> behavior explicit."
-        ),
+            "Help the patient identify external triggers (people, places, situations, times of day) "
+            "and internal triggers (thoughts, emotions, bodily sensations) that tend to precede cravings. "
+            "Guide them to walk through the full chain: the trigger, the automatic thoughts that followed, "
+            "the emotional and physical reactions, the resulting urge, and the behavior that came next. "
+            "Summarize any recurring patterns that link triggers to cravings and alcohol use."
+        )
     },
     {
         "id": "cbt_reappraisal",
         "name": "cognitive reappraisal of urges",
         "description": (
             "Gently question unhelpful automatic thoughts (e.g., 'I can’t "
-            "get through the evening without using') and help the patient "
+            "get through the evening without having a drink') and help the patient "
             "generate more balanced, realistic alternatives."
         ),
     },
@@ -160,20 +130,22 @@ CBT_STRATEGIES = [
         "id": "cbt_refusal",
         "name": "refusal-skills scripting",
         "description": (
-            "Help the patient script and rehearse a brief refusal line for "
-            "offers to use (e.g., from peers) and problem-solve how they "
-            "might deliver it."
-        ),
+            "Work with the patient to create a short, realistic refusal statement they can use when offered alcohol. "
+            "Explore common situations or people who might pressure them to drink, and help them craft responses that feel natural and confident. "
+            "Rehearse how they might say the refusal line, consider alternative wording if needed, and problem-solve any anticipated challenges in delivering it."
+        )
     },
+
     {
         "id": "cbt_stimulus_control",
         "name": "stimulus control",
         "description": (
-            "Brainstorm concrete ways to reduce exposure to cues (e.g., "
-            "removing contacts, avoiding certain apps or locations) and plan "
-            "at least one small action."
-        ),
+            "Help the patient identify specific cues, environments, or situations that increase the likelihood of use or cravings. "
+            "Brainstorm practical strategies to reduce or limit contact with these cues—such as changing routines, avoiding certain locations or digital spaces, or adjusting social contacts. "
+            "Collaborate on selecting one small, manageable action they can implement soon, and clarify how they plan to carry it out."
+        )
     },
+
     {
         "id": "cbt_exposure",
         "name": "graded exposure / urge-surfing",
@@ -187,42 +159,26 @@ CBT_STRATEGIES = [
         "id": "cbt_problem_solving",
         "name": "problem-solving for barriers",
         "description": (
-            "Identify a practical barrier (e.g., transportation, schedule, "
-            "money) and walk through structured problem solving: define the "
-            "problem, brainstorm options, pick one step, and plan when/how "
-            "to try it."
-        ),
+            "Work with the patient to identify a concrete, real-world barrier that makes change difficult "
+            "— such as transportation, scheduling, finances, or access to support. "
+            "Guide them through structured problem solving: clearly define the barrier, generate several possible solutions, "
+            "choose one realistic step to try, and plan when and how they will carry it out. "
+            "Check for confidence and adjust the plan if needed."
+        )
     },
-    {
-        "id": "cbt_structured_routine",
-        "name": "Structured daily routine",
-        "description": "Collaboratively develop a structured daily routine to bring stability and reduce idle time.",
-    },
+
     {
         "id": "cbt_behavioral_activation",
         "name": "Behavioral activation (small tasks)",
         "description": "Encourage engagement in small, manageable tasks and activities to build momentum and self-efficacy.",
     },
-    {
-        "id": "cbt_relaxation_grounding",
-        "name": "Relaxation and grounding techniques",
-        "description": "Introduce techniques like 5-4-3-2-1 grounding to manage anxiety and cravings.",
-    },
-    {
-        "id": "cbt_mindfulness",
-        "name": "Brief mindfulness practices",
-        "description": "Incorporate brief mindfulness exercises to improve awareness and reduce reactivity to triggers.",
-    },
+    
     {
         "id": "cbt_goal_setting",
         "name": "Goal setting and strength review",
         "description": "Collaboratively set achievable short-term goals and review the patient's strengths.",
     },
-    {
-        "id": "cbt_lifestyle_support",
-        "name": "Lifestyle support (sleep, nutrition, exercise)",
-        "description": "Provide guidance and support for improving lifestyle factors that impact recovery.",
-    },
+    
 ]
 
 ACTIONABLE_TOOLS = [
@@ -248,6 +204,7 @@ ACTIONABLE_TOOLS = [
         "description": (
             "Introduce grounding techniques such as sensory exercises or "
             "physical activities to manage anxiety or cravings."
+            "Introduce techniques like 5-4-3-2-1 grounding to manage anxiety and cravings."
         ),
     },
     {
@@ -276,7 +233,7 @@ ACTIONABLE_TOOLS = [
         "description": (
             "Practice assertive communication techniques for setting "
             "boundaries with peers or environments that encourage "
-            "substance use."
+            "alcohol use."
         ),
     },
     {
@@ -311,6 +268,7 @@ ACTIONABLE_TOOLS = [
         "description": (
             "Explore mindfulness-based activities like meditation, yoga, or "
             "tai chi to promote self-awareness and emotional regulation."
+            "Incorporate brief mindfulness exercises to improve awareness and reduce reactivity to triggers."
         ),
     },
     {
@@ -398,7 +356,7 @@ class DialogueState(TypedDict):
         patient_resolution_status: Boolean indicating if the patient has achieved resolution.
         dialogue_agenda_phase: The current phase of the dialogue agenda.
         patient_state_summary: A summary of the patient's state.
-        therapist_micro_commitment: A micro-commitment from the therapist.
+        therapist_micro_assignment: A micro-assignment from the therapist.
     """
 
     history: List[Dict[str, str]]
@@ -424,7 +382,7 @@ DIFFICULTY_DESCRIPTIONS = {
         "some ideas and push back on others."
     ),
     "hard": (
-        "You have long-standing substance use and substantial mistrust or "
+        "You have long-standing alcohol use and substantial mistrust or "
         "skepticism about treatment. You often challenge or deflect "
         "suggestions, emphasize barriers, and may minimize the need for "
         "change."
@@ -483,7 +441,7 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
     patient_instructions = (
         "You are role-playing as a patient in addiction recovery.\n"
         "Speak from the profile below, including your personality traits, "
-        "substance use history, significant life events, behavioral themes, "
+        "alcohol use history, significant life events, behavioral themes, "
         "and motivations for using.\n"
         "Stay consistent with this profile and with the conversation so far.\n"
         "Your difficulty level description explains how resistant or "
@@ -499,8 +457,8 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
         f"{display_history}\n\n"
         f"Difficulty setting: {state['difficulty_description']}\n\n"
         "Now, continue the conversation with the therapist to explore ways "
-        "to reduce or stop substance use. If you feel your goals have "
-        "clearly been achieved, you may say goodbye. Otherwise, respond "
+        "to reduce or stop alcohol use. If you feel your goals have "
+        "clearly been achieved, you may indicate that to the therapist and end the conversation. Otherwise, respond "
         "naturally and briefly in your own voice."
     )
 
@@ -529,10 +487,13 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
 
     # Analyze for resolution
     resolution_instructions = (
-        "Analyze the patient's message for resolution. If the patient "
-        "expresses sufficient motivation and confidence to end the "
-        "dialogue, return 'true'. Otherwise, return 'false'."
+        "Analyze the patient's message for indications that the session is complete. "
+        "If the patient expresses sufficient motivation, confidence, and commitment to try "
+        "the therapy micro-assignment, AND uses language that signals closure or readiness to end "
+        "the dialogue (e.g., 'See you next time', 'I think we’ve covered everything', 'That helped a lot'), "
+        "return 'true'. Otherwise, return 'false'."
     )
+
     resolution_prompt = f"Patient's message: '{patient_reply}'\n\n" "Has the patient indicated resolution?"
     resolution_status = call_llm(
         model=MODEL_PATIENT,
@@ -544,7 +505,7 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
 
     new_history = state["history"] + [{"role": "patient", "content": patient_reply}]
     new_turn_index = state["turn_index"] + 1
-    print(patient_resolution_status)
+    
     return {
         "history": new_history,
         "turn_index": new_turn_index,
@@ -579,9 +540,9 @@ As a therapist meeting this patient for the first time (the doctor didn’t have
 patient to begin with), create a detailed, step-by-step conversation that incorporates the following
 strategies:
 Motivational Interviewing (MI): Explore the individual’s values and goals to ignite their motivation
-for change.
+for change. {MI_STRATEGIES}
 Cognitive Behavioral Therapy (CBT): Identify and modify negative thought patterns and behaviors
-linked to substance use.
+linked to substance use.{CBT_STRATEGIES}
 Solution-Focused Brief Therapy (SFBT): Focus on the individual’s strengths and past successes
 to achieve their recovery goals.
 Peer Support Programs: Leverage group support or mutual-help networks to foster accountability
@@ -606,32 +567,28 @@ Coping Skill Development: Equip the individual with practical skills to manage s
 and other challenges without substances.
 To ensure balanced use of strategies, here is the current usage count of each strategy:
 {strategy_usage}
-When introducing coping mechanisms or steps for the patient, select from the predefined actionable
-strategies below:
-1. Explore specific hobbies or interests the patient can engage in to replace addictive behaviors
-(e.g., art, sports, volunteering).
-2. Develop a structured daily routine to bring stability and reduce idle time that might trigger
-relapse.
-3. Introduce grounding techniques such as sensory exercises or physical activities to manage
-anxiety or cravings.
-4. Suggest joining a support group or community to build social connections with individuals on
-similar journeys.
-5. Provide psychoeducation on how addiction affects the brain and emotional regulation.
-...
-18. Support the patient in finding meaningful ways to contribute to their community, such as
-mentoring, advocacy, or local initiatives, to foster a sense of purpose.
-Ensure the dialogue meets the following requirements: 1. Gradually explore the patient’s personality,
-addiction history, challenges, and triggers through multiple open-ended questions.
+When introducing coping mechanisms or steps for the patient, select from the predefined list of 
+actionable tools below: 
+{ACTIONABLE_TOOLS}
+
+
+Ensure the dialogue meets the following requirements: 
+1. Gradually explore the patient’s personality, alcohol addiction history, challenges, and triggers through multiple open-ended questions.
 2. Use multiple strategies from the above lists throughout the conversation. Avoid defaulting to
 the same few strategies and instead adapt them to the patient’s needs.
-...
+3. Create a safe and respectful environment by being empathetic and non-judgmental. Use affirmations and reflective 
+listening to build rapport. Maintain a collaborative and patient-centered approach, where solutions emerge naturally
+through dialogue rather than being imposed by therapist.
+4. Avoid arguing or confronting resistance. Instead, reflect the patient's perspective and explore their ambivalence. 
+Reframe resistance as a sign of the patient's engagement and autonomy.
 5. Engage in iterative dialogue for each solution, where the therapist introduces a strategy, seeks
 the patient’s feedback, adjusts based on their response, and explores challenges or barriers before
-finalizing the approach.
-6. Maintain a collaborative and patient-centered approach, where solutions emerge naturally
-through dialogue rather than being imposed by the.
-7. Ensure the conversation spans at least 60 dialogue turns (25 from the therapist and 25 from the
-patient), reflecting the depth and duration of a real therapeutic session.
+finalizing the approach.  
+6. Elicit and reflect language about Desire, Ability, Reasons, Need, Commitment, Activation, and 
+Taking steps for change, especially around alcohol use and recovery.
+7. Ensure the conversation spans at least 60 dialogue turns (30 from the therapist and 30 from the
+patient), reflecting the depth and duration of a real therapeutic session. Dialogue can terminate early if the patient indicates resolution 
+(e.g., expresses sufficient motivation and confidence to follow a coping plan)
 8. Use natural transitions to progress from one topic to another, ensuring the conversation feels
 organic and unhurried.
 9. The conversation should begin with the patient’s first utterance.
@@ -663,15 +620,20 @@ session.
 The goal is to create a natural, empathetic, and multi-layered dialogue that feels authentic and
 provides actionable, diverse therapeutic strategies. Ensure the length and depth align with the
 standards of a comprehensive therapy session.
-At the end of the conversation, return the strategies used in the following format (must follow the
-following format like **Strategies:**):
+
+At the end of the conversation, return the strategies used in the following format:
 **Strategies:** Motivational Interviewing (MI), Cognitive
 Behavioral Therapy (CBT), Peer Support Programs, etc.
 """
 
     therapist_instructions = therapist_instructions_template.format(
-        user_analysis=state["patient_profile"], strategy_usage=strategy_usage_text
+        user_analysis=state["patient_profile"], 
+        strategy_usage=strategy_usage_text,
+        MI_STRATEGIES=str(MI_STRATEGIES),
+        CBT_STRATEGIES=str(CBT_STRATEGIES),
+        ACTIONABLE_TOOLS=str(ACTIONABLE_TOOLS)
     )
+
 
     therapist_prompt = (
         "Conversation so far:\n"
@@ -786,7 +748,7 @@ example_patient_profile = f"""
 initial_state: DialogueState = {
     "history": [],  # empty: patient will start
     "patient_profile": example_patient_profile.strip(),
-    "difficulty": "medium",
+    "difficulty": "hard",
     "difficulty_description": DIFFICULTY_DESCRIPTIONS["medium"],
     "max_turns": 60,
     "turn_index": 0,
