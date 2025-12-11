@@ -621,9 +621,8 @@ The goal is to create a natural, empathetic, and multi-layered dialogue that fee
 provides actionable, diverse therapeutic strategies. Ensure the length and depth align with the
 standards of a comprehensive therapy session.
 
-At the end of the conversation, return the strategies used in the following format:
-**Strategies:** Motivational Interviewing (MI), Cognitive
-Behavioral Therapy (CBT), Peer Support Programs, etc.
+After each response, you MUST list the strategies you used in that specific turn. Use the following format on a new line:
+**Strategies:** Strategy Name 1, Strategy Name 2
 """
 
     therapist_instructions = therapist_instructions_template.format(
@@ -745,11 +744,13 @@ example_patient_profile = f"""
 
 """
 
+difficulty_setting = "hard"
+
 initial_state: DialogueState = {
     "history": [],  # empty: patient will start
     "patient_profile": example_patient_profile.strip(),
-    "difficulty": "hard",
-    "difficulty_description": DIFFICULTY_DESCRIPTIONS["medium"],
+    "difficulty": difficulty_setting,
+    "difficulty_description": DIFFICULTY_DESCRIPTIONS[difficulty_setting],
     "max_turns": 60,
     "turn_index": 0,
     "strategy_history": [],
@@ -773,6 +774,16 @@ def print_dialogue(history: List[Dict[str, str]]):
 
 # Print the simulated dialogue
 print_dialogue(result_state["history"])
+
+# Print the strategies used
+print("\n--- Strategies Used ---\n")
+if result_state["strategy_history"]:
+    unique_strategies = sorted(list(set(result_state["strategy_history"])))
+    for strategy in unique_strategies:
+        print(f"- {strategy}")
+else:
+    print("No strategies were recorded.")
+
 
 # Set output directory
 output_dir = r"C:\Users\vikto\RecoveryBot Project"
