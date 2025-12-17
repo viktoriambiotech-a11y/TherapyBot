@@ -45,10 +45,53 @@ Use exact barrier names as provided.
 """
 
 # ---------------------------------------------------------
-# CLASSIFICATION PROMPT
+# PARSE LLM OUTPUT
 # ---------------------------------------------------------
-def build_prompt(profile_text):
-    return f"""
+def parse_llm_output(text):
+    """
+    Parses the raw text output from the language model to extract
+    the barrier list and difficulty rating.
+    """
+    barrier_list = []
+    difficulty_rating = ""
+    lines = text.strip().split('\n')
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        if line.startswith("Barrier List:"):
+            i += 1
+            while i < len(lines) and lines[i].strip().startswith("-"):
+                barrier_list.append(lines[i].strip()[1:].strip())
+                i += 1
+            continue # Continue to the next part of the main loop
+
+        if line.startswith("Difficulty Level:"):
+            # The rating might be on the same line or the next one
+            rating = line.replace("Difficulty Level:", "").strip()
+            if rating:
+                difficulty_rating = rating
+            elif i + 1 < len(lines) and lines[i+1].strip():
+                difficulty_rating = lines[i+1].strip()
+                i += 1 # Move past the rating value line
+            i += 1
+            continue
+
+        i += 1
+
+    return barrier_list, difficulty_rating or "Unknown"
+
+# ---------------------------------------------------------
+# PROCESS FILES
+# ---------------------------------------------------------
+def get_patient_classification(profile_text):
+    """
+    Calls the OpenAI API to get the classification for a single patient profile.
+    """
+    # The classification prompt is now constructed directly within this function
+    # to avoid the NameError from the missing build_prompt function.
+    user_prompt = f"""
 PATIENT PROFILE:
 {profile_text}
 
@@ -123,32 +166,32 @@ Assign if ANY:
 DIFFICULTY RATING RULES
 -----------------------------------
 
-Step 2.1: Count domains present:
-Individual / Social / Systemic
+🔴 HARD
+Assign hard rating if ANY of the following are present:
+-  High-resistance indicators (i.e. Long-term heavy use (multi-year pattern), Repeated relapse despite treatment, Strong distrust of providers, Severe emotional dysregulation (hopelessness, self-destructive coping), Alcohol used as primary coping mechanism),
+ OR
+Barriers in 3 domains,
+OR
+Severe emotional reliance + social or systemic barrier
+Typical profile:
+“Alcohol is the only thing that helps and I don’t trust treatment.”
 
-Step 2.2: High-Resistance Indicators:
-- Long-term heavy use
-- Repeated relapse
-- Strong distrust of providers
-- Severe emotional dysregulation
-- Alcohol as primary coping mechanism
+🟢 EASY
+ALL must be true:
+Barriers present in 1 domain only
+NO high-resistance indicators
+Clear motivation and willingness to cooperate
+Typical profile:
+“I want to stop, I know alcohol is a problem, I just need structure.”
 
-Step 2.3: Rating Logic:
-
-🟢 EASY:
-- Barriers in 1 domain ONLY
-- NO high-resistance indicators
-- Clear motivation and cooperation
-
-🟡 MEDIUM:
-- Barriers in 2 domains OR
-- Psychological ambivalence OR
-- Habitual/emotional reliance without severe dysregulation
-
-🔴 HARD (overrides all):
-- ANY high-resistance indicator OR
-- Barriers in 3 domains OR
-- Severe emotional reliance + social or systemic barrier
+🟡 MEDIUM
+Barriers in 2 domains,
+OR
+Psychological ambivalence present,
+OR
+Habitual/emotional reliance without severe dysregulation
+Typical profile:
+“I know it’s a problem, but I keep slipping when stressed.”
 
 -----------------------------------
 OUTPUT FORMAT (STRICT)
@@ -158,52 +201,15 @@ Barrier List:
 - [Barrier Name]
 - [Barrier Name]
 
-Difficulty Rating:
+Difficulty Level:
 Easy / Medium / Hard
 """
-
-# ---------------------------------------------------------
-# PARSE LLM OUTPUT
-# ---------------------------------------------------------
-def parse_llm_output(text):
-    """
-    Parses the raw text output from the language model to extract
-    the barrier list and difficulty rating.
-    """
-    barrier_list = []
-    difficulty_rating = "Unknown"
-
-    lines = text.strip().split('\n')
-
-    in_barrier_section = False
-    for line in lines:
-        line = line.strip()
-        if line.startswith("Barrier List:"):
-            in_barrier_section = True
-            continue
-        elif line.startswith("Difficulty Rating:"):
-            in_barrier_section = False
-            difficulty_rating = line.replace("Difficulty Rating:", "").strip()
-            continue
-
-        if in_barrier_section and line.startswith("-"):
-            barrier_list.append(line[1:].strip())
-
-    return barrier_list, difficulty_rating
-
-# ---------------------------------------------------------
-# PROCESS FILES
-# ---------------------------------------------------------
-def get_patient_classification(profile_text):
-    """
-    Calls the OpenAI API to get the classification for a single patient profile.
-    """
     try:
         response = client.chat.completions.create(
             model=MODEL_PATIENT,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_prompt(profile_text)}
+                {"role": "user", "content": user_prompt}
             ],
             temperature=0.0
         )
@@ -248,7 +254,6 @@ def process_profiles():
         print(f"INFO: Reading input file: {INPUT_FILE}")
         with open(INPUT_FILE, mode='r', encoding='latin-1') as infile:
             reader = csv.reader(infile)
-            next(reader, None)  # Skip the header row
 
             for row in reader:
                 if not row or not any(field.strip() for field in row):
