@@ -248,7 +248,6 @@ def process_profiles():
         print(f"INFO: Reading input file: {INPUT_FILE}")
         with open(INPUT_FILE, mode='r', encoding='latin-1') as infile:
             reader = csv.reader(infile)
-            next(reader, None)  # Skip the header row
 
             for row in reader:
                 if not row or not any(field.strip() for field in row):
