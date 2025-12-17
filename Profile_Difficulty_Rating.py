@@ -1,23 +1,22 @@
 import os
 import csv
 import json
+import argparse
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, APIError
 
 # ---------------------------------------------------------
 # ENV + CLIENT SETUP
 # ---------------------------------------------------------
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+try:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+except APIError as e:
+    print(f"Failed to initialize OpenAI client: {e}")
+    exit(1)
 
 MODEL_PATIENT = "gpt-4o"
-
-INPUT_FILE = r"C:\Users\vikto\RecoveryBot Project\Patient_Profiles_Nov9.csv"
-OUTPUT_FILE = r"C:\Users\vikto\RecoveryBot Project\Patient_Profiles_Rated.json"
-
-# Ensure the output directory exists
-os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
 
 # ---------------------------------------------------------
 # SYSTEM PROMPT (STRICT CLASSIFICATION LOGIC)
@@ -154,16 +153,62 @@ Easy / Medium / Hard
 """
 
 # ---------------------------------------------------------
+# PARSE LLM OUTPUT
+# ---------------------------------------------------------
+def parse_llm_output(text):
+    """
+    Parses the raw text output from the language model to extract
+    the barrier list and difficulty rating.
+    """
+    barrier_list = []
+    difficulty_rating = "Unknown"
+
+    lines = text.strip().split('\n')
+
+    in_barrier_section = False
+    for line in lines:
+        line = line.strip()
+        if line.startswith("Barrier List:"):
+            in_barrier_section = True
+            continue
+        elif line.startswith("Difficulty Rating:"):
+            in_barrier_section = False
+            difficulty_rating = line.replace("Difficulty Rating:", "").strip()
+            continue
+
+        if in_barrier_section and line.startswith("-"):
+            barrier_list.append(line[1:].strip())
+
+    return barrier_list, difficulty_rating
+
+# ---------------------------------------------------------
 # PROCESS FILES
 # ---------------------------------------------------------
-def process_profiles():
+def get_patient_classification(profile_text):
+    """
+    Calls the OpenAI API to get the classification for a single patient profile.
+    """
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_PATIENT,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": build_prompt(profile_text)}
+            ],
+            temperature=0.0
+        )
+        return response.choices[0].message.content.strip()
+    except APIError as e:
+        print(f"  !! API Error: {e}")
+        return None
+
+def process_profiles(input_file, output_file):
     """
     Reads profiles from a CSV, gets ratings, and saves them to a single JSON file.
     """
     all_results = []
     try:
-        with open(INPUT_FILE, mode='r', encoding='latin-1') as infile:
-            # Assuming the CSV has headers: 'user_id', 'profile_text'
+        with open(input_file, mode='r', encoding='latin-1') as infile:
             reader = csv.DictReader(infile)
             for row in reader:
                 patient_id = row.get('user_id')
@@ -175,29 +220,33 @@ def process_profiles():
 
                 print(f"Processing patient: {patient_id}...")
 
-                response = client.chat.completions.create(
-                    model=MODEL_PATIENT,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": build_prompt(profile_text)}
-                    ],
-                    temperature=0.0
-                )
+                classification_text = get_patient_classification(profile_text)
 
-                classification = response.choices[0].message.content.strip()
+                if classification_text:
+                    barrier_list, difficulty_rating = parse_llm_output(classification_text)
 
-                all_results.append({
-                    "patient_id": patient_id,
-                    "classification": classification
-                })
+                    all_results.append({
+                        "Patient ID": patient_id,
+                        "Patient Profile Summary": profile_text,
+                        "Barrier list": barrier_list,
+                        "Difficulty Level": difficulty_rating
+                    })
 
-        with open(OUTPUT_FILE, 'w', encoding='utf-8') as outfile:
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        with open(output_file, 'w', encoding='utf-8') as outfile:
             json.dump(all_results, outfile, indent=2)
 
-        print(f"\nSuccessfully processed {len(all_results)} profiles and saved to {OUTPUT_FILE}")
+        print(f"\nSuccessfully processed {len(all_results)} profiles and saved to {output_file}")
 
     except FileNotFoundError:
-        print(f"ERROR: Input file not found at '{INPUT_FILE}'. Please check the path.")
+        print(f"ERROR: Input file not found at '{input_file}'. Please check the path.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
-    process_profiles()
+    parser = argparse.ArgumentParser(description="Classify patient profiles based on barriers to treatment.")
+    parser.add_argument("input_file", help="The path to the input CSV file.")
+    parser.add_argument("output_file", help="The path to the output JSON file.")
+    args = parser.parse_args()
+
+    process_profiles(args.input_file, args.output_file)
