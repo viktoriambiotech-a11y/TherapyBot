@@ -218,38 +218,72 @@ def get_patient_classification(profile_text):
 def process_profiles():
     """
     Reads profiles from a CSV, gets ratings, and saves them to a single JSON file.
+    This function is designed to handle CSVs where each patient's data spans multiple rows.
     """
     all_results = []
+    current_patient_id = None
+    current_profile_text = ""
+
+    def process_single_patient(patient_id, profile_text):
+        """Helper function to process one patient's complete profile."""
+        if not patient_id or not profile_text.strip():
+            print(f"WARNING: Skipping patient record with incomplete data. ID: {patient_id}")
+            return
+
+        print(f"Processing patient: {patient_id}...")
+        classification_text = get_patient_classification(profile_text)
+
+        if classification_text:
+            barrier_list, difficulty_rating = parse_llm_output(classification_text)
+            all_results.append({
+                "Patient ID": patient_id,
+                "Patient Profile Summary": profile_text.strip(),
+                "Barrier list": barrier_list,
+                "Difficulty Level": difficulty_rating
+            })
+        else:
+            print(f"WARNING: Failed to classify patient {patient_id}. Skipping.")
+
     try:
         print(f"INFO: Reading input file: {INPUT_FILE}")
         with open(INPUT_FILE, mode='r', encoding='latin-1') as infile:
-            reader = csv.DictReader(infile)
+            reader = csv.reader(infile)
+            next(reader, None)  # Skip the header row
+
             for row in reader:
-                patient_id = row.get('user_id')
-                profile_text = row.get('profile_text')
+                if not row or not any(field.strip() for field in row):
+                    continue  # Skip empty rows
 
-                if not patient_id or not profile_text:
-                    print(f"WARNING: Skipping incomplete row: {row}")
-                    continue
+                col1 = row[0].strip()
+                col2 = row[1].strip() if len(row) > 1 else ""
 
-                print(f"Processing patient: {patient_id}...")
+                # A row with "User ID" and a UUID in the next column marks a new patient
+                if "User ID" in col1 and len(col2) > 20:
+                    # If we were already building a patient, process them first
+                    if current_patient_id:
+                        process_single_patient(current_patient_id, current_profile_text)
 
-                classification_text = get_patient_classification(profile_text)
+                    # Start the new patient record
+                    current_patient_id = col2
+                    current_profile_text = ""
+                # A separator line marks the end of a patient record
+                elif "---" in col1:
+                    if current_patient_id:
+                        process_single_patient(current_patient_id, current_profile_text)
+                    # Reset for the next block
+                    current_patient_id = None
+                    current_profile_text = ""
+                # Otherwise, it's content for the current patient
+                elif current_patient_id:
+                    current_profile_text += f"{col1}: {col2}\n"
 
-                if classification_text:
-                    barrier_list, difficulty_rating = parse_llm_output(classification_text)
+            # After the loop, process the last patient in the file if they exist
+            if current_patient_id:
+                process_single_patient(current_patient_id, current_profile_text)
 
-                    all_results.append({
-                        "Patient ID": patient_id,
-                        "Patient Profile Summary": profile_text,
-                        "Barrier list": barrier_list,
-                        "Difficulty Level": difficulty_rating
-                    })
-                else:
-                    print(f"WARNING: Failed to classify patient {patient_id}. Skipping.")
-
+        # Write the final results to the JSON file
         output_dir = os.path.dirname(OUTPUT_FILE)
-        if not os.path.exists(output_dir):
+        if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
         with open(OUTPUT_FILE, 'w', encoding='utf-8') as outfile:
