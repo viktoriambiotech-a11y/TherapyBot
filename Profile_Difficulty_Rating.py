@@ -1,7 +1,7 @@
 import os
 import csv
 import json
-import argparse
+import sys
 from dotenv import load_dotenv
 from openai import OpenAI, APIError
 
@@ -10,13 +10,23 @@ from openai import OpenAI, APIError
 # ---------------------------------------------------------
 load_dotenv()
 
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("ERROR: The OPENAI_API_KEY environment variable is not set.")
+    print("Please create a .env file in the script's directory and add the following line:")
+    print("OPENAI_API_KEY='your_api_key_here'")
+    sys.exit(1)
+
 try:
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-except APIError as e:
-    print(f"Failed to initialize OpenAI client: {e}")
-    exit(1)
+    client = OpenAI(api_key=api_key)
+except Exception as e:
+    print(f"ERROR: Failed to initialize OpenAI client: {e}")
+    sys.exit(1)
 
 MODEL_PATIENT = "gpt-4o"
+
+INPUT_FILE = r"C:\Users\vikto\RecoveryBot Project\Patient_Profiles_Nov9.csv"
+OUTPUT_FILE = r"C:\Users\vikto\RecoveryBot Project\Patient_Profiles_Rated.json"
 
 # ---------------------------------------------------------
 # SYSTEM PROMPT (STRICT CLASSIFICATION LOGIC)
@@ -199,23 +209,27 @@ def get_patient_classification(profile_text):
         )
         return response.choices[0].message.content.strip()
     except APIError as e:
-        print(f"  !! API Error: {e}")
+        print(f"  !! API Error during classification: {e}")
+        return None
+    except Exception as e:
+        print(f"  !! An unexpected error occurred during API call: {e}")
         return None
 
-def process_profiles(input_file, output_file):
+def process_profiles():
     """
     Reads profiles from a CSV, gets ratings, and saves them to a single JSON file.
     """
     all_results = []
     try:
-        with open(input_file, mode='r', encoding='latin-1') as infile:
+        print(f"INFO: Reading input file: {INPUT_FILE}")
+        with open(INPUT_FILE, mode='r', encoding='latin-1') as infile:
             reader = csv.DictReader(infile)
             for row in reader:
                 patient_id = row.get('user_id')
                 profile_text = row.get('profile_text')
 
                 if not patient_id or not profile_text:
-                    print(f"Skipping incomplete row: {row}")
+                    print(f"WARNING: Skipping incomplete row: {row}")
                     continue
 
                 print(f"Processing patient: {patient_id}...")
@@ -231,22 +245,23 @@ def process_profiles(input_file, output_file):
                         "Barrier list": barrier_list,
                         "Difficulty Level": difficulty_rating
                     })
+                else:
+                    print(f"WARNING: Failed to classify patient {patient_id}. Skipping.")
 
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        with open(output_file, 'w', encoding='utf-8') as outfile:
+        output_dir = os.path.dirname(OUTPUT_FILE)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        with open(OUTPUT_FILE, 'w', encoding='utf-8') as outfile:
             json.dump(all_results, outfile, indent=2)
 
-        print(f"\nSuccessfully processed {len(all_results)} profiles and saved to {output_file}")
+        print(f"\nSuccessfully processed {len(all_results)} profiles.")
+        print(f"Output saved to {OUTPUT_FILE}")
 
     except FileNotFoundError:
-        print(f"ERROR: Input file not found at '{input_file}'. Please check the path.")
+        print(f"ERROR: Input file not found at '{INPUT_FILE}'. Please check the path and try again.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Classify patient profiles based on barriers to treatment.")
-    parser.add_argument("input_file", help="The path to the input CSV file.")
-    parser.add_argument("output_file", help="The path to the output JSON file.")
-    args = parser.parse_args()
-
-    process_profiles(args.input_file, args.output_file)
+    process_profiles()
