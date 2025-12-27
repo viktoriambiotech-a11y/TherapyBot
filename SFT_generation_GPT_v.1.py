@@ -348,19 +348,19 @@ class DialogueState(TypedDict):
     Attributes:
         history: List of interaction dictionaries (role/content).
         patient_profile: String representation of the patient.
+        patient_profile_summary: A concise summary of the patient profile.
         difficulty: The set difficulty level (easy/medium/hard).
         difficulty_description: Instructions on resistance level.
         max_turns: Target total turns.
         turn_index: Current 0-based turn count.
         strategy_history: List of strategy IDs used so far.
         patient_resolution_status: Boolean indicating if the patient has achieved resolution.
-        dialogue_agenda_phase: The current phase of the dialogue agenda.
         patient_state_summary: A summary of the patient's state.
-        therapist_micro_assignment: A micro-assignment from the therapist.
     """
 
     history: List[Dict[str, str]]
     patient_profile: str
+    patient_profile_summary: str
     difficulty: Literal["easy", "medium", "hard"]
     difficulty_description: str
     max_turns: int
@@ -388,6 +388,25 @@ DIFFICULTY_DESCRIPTIONS = {
         "change."
     ),
 }
+
+
+def summarize_patient_profile(profile: str) -> str:
+    """
+    Uses an LLM to create a concise summary of the patient profile.
+    """
+    instructions = (
+        "Summarize the following patient profile into a concise paragraph. "
+        "Focus on the key clinical details: primary issue, substance use history, "
+        "behavioral patterns, and motivations. This summary will be used by a therapist bot "
+        "to maintain context during a conversation."
+    )
+    summary = call_llm(
+        model=MODEL_THERAPIST,
+        instructions=instructions,
+        input_text=profile,
+        max_output_tokens=256,
+    )
+    return summary
 
 
 def call_llm(model: str, instructions: str, input_text: str, max_output_tokens: int = 256) -> str:
@@ -431,81 +450,66 @@ def render_history_for_prompt(history: List[Dict[str, str]]) -> str:
 
 def patient_node(state: DialogueState) -> Dict[str, Any]:
     """
-    Generates the patient's next utterance based on profile and history.
+    Generates the patient's next utterance, summary, and resolution status in a single call.
     """
     history_text = render_history_for_prompt(state["history"])
-
-    # Handle empty history case for prompt display
     display_history = history_text if history_text else "(no prior conversation – this is the first turn)"
 
-    patient_instructions = (
-        "You are role-playing as a patient in addiction recovery.\n"
-        "Speak from the profile below, including your personality traits, "
-        "alcohol use history, significant life events, behavioral themes, "
-        "and motivations for using.\n"
-        "Stay consistent with this profile and with the conversation so far.\n"
-        "Your difficulty level description explains how resistant or "
-        "ambivalent you are.\n"
-        "Only return what the patient says next. Do not include narration "
-        "or system messages."
-    )
+    instructions_for_json_output = """
+You are role-playing as a patient in addiction recovery.
+Speak from the profile below, staying consistent with the conversation so far.
+Your difficulty level description explains how resistant or ambivalent you are.
 
-    patient_prompt = (
-        "Here is your patient profile:\n"
-        f"{state['patient_profile']}\n\n"
-        "Conversation so far:\n"
-        f"{display_history}\n\n"
-        f"Difficulty setting: {state['difficulty_description']}\n\n"
-        "Now, continue the conversation with the therapist to explore ways "
-        "to reduce or stop alcohol use. If you feel your goals have "
-        "clearly been achieved, you may indicate that to the therapist and end the conversation. Otherwise, respond "
-        "naturally and briefly in your own voice."
-    )
+Your task is to generate a single JSON object containing three fields: "reply", "summary", and "resolution_status".
 
-    patient_reply = call_llm(
+1.  **reply**: Create the patient's next utterance based on the conversation history and their profile. This should be a natural, brief response in the patient's voice. Do not include narration or system messages.
+2.  **summary**: Analyze the patient's message and the current situation to provide a compact summary of their state. This summary should cover aspects like craving levels, trigger salience, confidence, and any flags for recent lapses.
+3.  **resolution_status**: Analyze the patient's message for indications that the session is complete. If the patient expresses sufficient motivation, confidence, and commitment to try a therapy micro-assignment, AND uses language that signals closure or readiness to end the dialogue (e.g., 'See you next time', 'I think we’ve covered everything', 'That helped a lot'), set this to `true`. Otherwise, set it to `false`.
+
+The final output MUST be a valid JSON object and nothing else.
+"""
+
+    prompt = f"""
+Patient Profile:
+{state['patient_profile']}
+
+Difficulty Setting:
+{state['difficulty_description']}
+
+Conversation So Far:
+{display_history}
+
+Based on the above, provide the next patient turn as a JSON object with "reply", "summary", and "resolution_status".
+"""
+
+    response_str = call_llm(
         model=MODEL_PATIENT,
-        instructions=patient_instructions,
-        input_text=patient_prompt,
-        max_output_tokens=128,
+        instructions=instructions_for_json_output,
+        input_text=prompt,
+        max_output_tokens=256,  # Increased to accommodate JSON structure and content
     )
 
-    # Generate patient state summary
-    patient_summary_instructions = (
-        "Analyze the patient's message and summarize their state. "
-        "Provide a compact summary covering craving, trigger salience, "
-        "confidence, and recent lapse flags."
-    )
-    patient_summary_prompt = (
-        f"Patient's message: '{patient_reply}'\n\n" "Generate a structured summary of the patient's current state."
-    )
-    patient_state_summary = call_llm(
-        model=MODEL_PATIENT,
-        instructions=patient_summary_instructions,
-        input_text=patient_summary_prompt,
-        max_output_tokens=64,
-    )
+    try:
+        # The response might be enclosed in markdown ```json ... ```
+        if response_str.startswith("```json"):
+            response_str = response_str[7:-4]
 
-    # Analyze for resolution
-    resolution_instructions = (
-        "Analyze the patient's message for indications that the session is complete. "
-        "If the patient expresses sufficient motivation, confidence, and commitment to try "
-        "the therapy micro-assignment, AND uses language that signals closure or readiness to end "
-        "the dialogue (e.g., 'See you next time', 'I think we’ve covered everything', 'That helped a lot'), "
-        "return 'true'. Otherwise, return 'false'."
-    )
-
-    resolution_prompt = f"Patient's message: '{patient_reply}'\n\n" "Has the patient indicated resolution?"
-    resolution_status = call_llm(
-        model=MODEL_PATIENT,
-        instructions=resolution_instructions,
-        input_text=resolution_prompt,
-        max_output_tokens=8,
-    )
-    patient_resolution_status = "true" in resolution_status.lower()
+        response_data = json.loads(response_str)
+        patient_reply = response_data.get("reply", "[MISSING_REPLY]")
+        patient_state_summary = response_data.get("summary", "[MISSING_SUMMARY]")
+        patient_resolution_status = response_data.get("resolution_status", False)
+    except (json.JSONDecodeError, AttributeError) as e:
+        print(f"--- ERROR PARSING PATIENT JSON RESPONSE ---")
+        print(f"Failed to parse JSON: {e}")
+        print(f"Raw response: {response_str}")
+        # Provide fallback values to avoid crashing the graph
+        patient_reply = response_str  # Use the raw string as a fallback for the reply
+        patient_state_summary = "Error parsing patient state."
+        patient_resolution_status = False
 
     new_history = state["history"] + [{"role": "patient", "content": patient_reply}]
     new_turn_index = state["turn_index"] + 1
-    
+
     return {
         "history": new_history,
         "turn_index": new_turn_index,
@@ -519,7 +523,7 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
 
 def therapist_node(state: DialogueState) -> Dict[str, Any]:
     """
-    Generates the therapist's response using MI/CBT principles.
+    Generates the therapist's response using a summarized profile and strategy names to save tokens.
     """
     history_text = render_history_for_prompt(state["history"])
 
@@ -531,121 +535,57 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
     if not strategy_usage_text:
         strategy_usage_text = "No strategies used yet."
 
-    therapist_instructions_template = """
-The following is the analysis of a patient:
+    def get_strategy_names(strategy_list: List[Dict[str, str]]) -> str:
+        return ", ".join([f'"{item["name"]}"' for item in strategy_list])
 
+    therapist_instructions_template = """
+You are an expert therapist in a role-play simulation. Your goal is to conduct a therapeutic dialogue with a patient based on their profile summary.
+You should be empathetic, non-judgmental, and collaborative.
+
+PATIENT SUMMARY:
 {user_analysis}
 
-As a therapist meeting this patient for the first time (the doctor didn’t have any information of
-patient to begin with), create a detailed, step-by-step conversation that incorporates the following
-strategies:
-Motivational Interviewing (MI): Explore the individual’s values and goals to ignite their motivation
-for change. {MI_STRATEGIES}
-Cognitive Behavioral Therapy (CBT): Identify and modify negative thought patterns and behaviors
-linked to substance use.{CBT_STRATEGIES}
-Solution-Focused Brief Therapy (SFBT): Focus on the individual’s strengths and past successes
-to achieve their recovery goals.
-Peer Support Programs: Leverage group support or mutual-help networks to foster accountability
-and a sense of belonging.
-Mindfulness-Based Interventions (MBIs): Incorporate mindfulness practices to improve emotional
-regulation and reduce cravings.
-Behavioral Activation (BA): Promote engaging in meaningful activities to replace substance related
-behaviors.
-Relapse Prevention Strategies: Develop skills to recognize triggers and implement coping mechanisms
-to avoid relapse.
-Strength-Based Approach: Highlight the individual’s resilience and personal resources to empower
-recovery efforts.
-Psychoeducation on Addiction and Recovery: Educate the individual about the effects of substances
-and the benefits of recovery.
-Harm Reduction Framework: Provide strategies to minimize immediate harm while working
-towards cessation.
-Family and Social Support Involvement: Engage family or trusted individuals in the process to
-strengthen the support network.
-Self-Compassion Practices: Encourage self-kindness to build confidence and reduce guilt associated
-with substance use.
-Coping Skill Development: Equip the individual with practical skills to manage stress, anxiety,
-and other challenges without substances.
-To ensure balanced use of strategies, here is the current usage count of each strategy:
+STRATEGY USAGE:
 {strategy_usage}
-When introducing coping mechanisms or steps for the patient, select from the predefined list of 
-actionable tools below: 
-{ACTIONABLE_TOOLS}
 
+AVAILABLE STRATEGIES:
+- MI Strategies: {MI_STRATEGIES}
+- CBT Strategies: {CBT_STRATEGIES}
+- Actionable Tools: {ACTIONABLE_TOOLS}
 
-Ensure the dialogue meets the following requirements: 
-1. Gradually explore the patient’s personality, alcohol addiction history, challenges, and triggers through multiple open-ended questions.
-2. Use multiple strategies from the above lists throughout the conversation. Avoid defaulting to
-the same few strategies and instead adapt them to the patient’s needs.
-3. Create a safe and respectful environment by being empathetic and non-judgmental. Use affirmations and reflective 
-listening to build rapport. Maintain a collaborative and patient-centered approach, where solutions emerge naturally
-through dialogue rather than being imposed by therapist.
-4. Avoid arguing or confronting resistance. Instead, reflect the patient's perspective and explore their ambivalence. 
-Reframe resistance as a sign of the patient's engagement and autonomy.
-5. Engage in iterative dialogue for each solution, where the therapist introduces a strategy, seeks
-the patient’s feedback, adjusts based on their response, and explores challenges or barriers before
-finalizing the approach.  
-6. Elicit and reflect language about Desire, Ability, Reasons, Need, Commitment, Activation, and 
-Taking steps for change, especially around alcohol use and recovery.
-7. Ensure the conversation spans at least 60 dialogue turns (30 from the therapist and 30 from the
-patient), reflecting the depth and duration of a real therapeutic session. Dialogue can terminate early if the patient indicates resolution 
-(e.g., expresses sufficient motivation and confidence to follow a coping plan)
-8. Use natural transitions to progress from one topic to another, ensuring the conversation feels
-organic and unhurried.
-9. The conversation should begin with the patient’s first utterance.
-Here is an example of a layered, empathetic dialogue:
-Patient: Hi. . . um, thanks for seeing me today. I wasn’t sure what to expect.
-Therapist: Hi Mark, I really appreciate you coming in. Starting this process can feel overwhelming,
-but I’m here to support you. What’s been on your mind lately?
-Patient: I’ve been feeling really stuck. I know I want to quit smoking, but every time I try, I just
-feel like I’m failing all over again.
-Therapist: I hear you, Mark. Quitting smoking is one of the hardest challenges anyone can take
-on, and it’s completely natural to feel this way. I’ve worked with others who’ve felt the same—they
-described it as climbing a mountain that feels too steep. But I’ve also seen them reach the top,
-step by step. Can we talk about what makes the climb feel steep for you right now?
-Patient: It’s the cravings. They just hit me out of nowhere, and I don’t know how to handle them.
-Therapist: Cravings can feel like a storm, can’t they? I worked with someone once who described
-their cravings as waves that kept crashing over them. Together, we found ways for them to ride out
-those waves, like focusing on a small activity or changing their environment. Could we explore
-some strategies that might help you ride out your cravings too?
-Patient: Sure, I guess.
-Therapist: Great. Let’s start with understanding when these cravings hit hardest. For example, is
-it during specific times of day or situations?
-The conversation should continue to explore: - The patient’s motivations, barriers, and triggers in
-detail. - Strategies and coping mechanisms tailored to their unique experiences, ensuring diversity
-in approaches. - Empathetic reflections from the therapist that validate the patient’s feelings
-and provide relatable examples to instill hope. - Iterative problem-solving where the therapist
-introduces, discusses, and adjusts strategies collaboratively. - A gradual, layered exploration of the
-patient’s challenges, ensuring at least 60 dialogue turns to reflect the depth of a real therapeutic
-session.
-The goal is to create a natural, empathetic, and multi-layered dialogue that feels authentic and
-provides actionable, diverse therapeutic strategies. Ensure the length and depth align with the
-standards of a comprehensive therapy session.
+INSTRUCTIONS:
+1. Read the patient summary and conversation history carefully.
+2. Select relevant strategies from the available lists to guide your response. Adapt your approach based on the patient's needs and avoid overusing the same strategies.
+3. Ask open-ended questions to explore the patient's challenges, motivations, and triggers.
+4. Build rapport using affirmations and reflective listening.
+5. If you suggest a coping mechanism or tool, refer to the "Actionable Tools" list.
+6. Keep your response concise and natural.
+7. Write the therapist's next reply only. Do not include 'Therapist:' labels or any narration.
 
-After each response, you MUST list the strategies you used in that specific turn. Use the following format on a new line:
+After your response, you MUST list the strategies you used on a new line. Use the format:
 **Strategies:** Strategy Name 1, Strategy Name 2
+
+CONVERSATION SO FAR:
+{history_text}
 """
 
     therapist_instructions = therapist_instructions_template.format(
-        user_analysis=state["patient_profile"], 
+        user_analysis=state["patient_profile_summary"],
+        history_text=history_text,
         strategy_usage=strategy_usage_text,
-        MI_STRATEGIES=str(MI_STRATEGIES),
-        CBT_STRATEGIES=str(CBT_STRATEGIES),
-        ACTIONABLE_TOOLS=str(ACTIONABLE_TOOLS)
+        MI_STRATEGIES=get_strategy_names(MI_STRATEGIES),
+        CBT_STRATEGIES=get_strategy_names(CBT_STRATEGIES),
+        ACTIONABLE_TOOLS=get_strategy_names(ACTIONABLE_TOOLS),
     )
 
-
-    therapist_prompt = (
-        "Conversation so far:\n"
-        f"{history_text}\n\n"
-        "Now write the therapist's next reply only. "
-        "Do not include 'Therapist:' labels or any narration."
-    )
+    # The user prompt is now just a trigger to generate the response based on the system prompt.
+    therapist_prompt = "Therapist:"
 
     full_response = call_llm(
         model=MODEL_THERAPIST,
         instructions=therapist_instructions,
         input_text=therapist_prompt,
-        max_output_tokens=1024,
+        max_output_tokens=512,
     )
 
     # Parse the response to separate the dialogue from the strategies
@@ -746,9 +686,15 @@ example_patient_profile = f"""
 
 difficulty_setting = "hard"
 
+# Generate a concise summary of the patient profile to save tokens
+print("Summarizing patient profile...")
+patient_profile_summary = summarize_patient_profile(example_patient_profile.strip())
+print("Summary complete.")
+
 initial_state: DialogueState = {
     "history": [],  # empty: patient will start
     "patient_profile": example_patient_profile.strip(),
+    "patient_profile_summary": patient_profile_summary,
     "difficulty": difficulty_setting,
     "difficulty_description": DIFFICULTY_DESCRIPTIONS[difficulty_setting],
     "max_turns": 60,
