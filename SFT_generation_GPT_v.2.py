@@ -645,6 +645,7 @@ class DialogueState(TypedDict):
     patient_resolution_status: bool
     patient_state_summary: str
     stressor_ledger: List[Dict[str, Any]]
+    session_number: int
 
 
 DIFFICULTY_DESCRIPTIONS = {
@@ -807,12 +808,43 @@ Based on the above, provide the next patient turn as a JSON object with "reply",
 
 # Therapist Node Logic
 
+def policy_node(state: DialogueState) -> List[str]:
+    """
+    Selects therapeutic strategies based on the session number.
+    """
+    session_number = state.get("session_number", 1)
+
+    if session_number == 1:
+        # Build trust, assessment, set safety/limits.
+        return ["mi_scales", "cbt_trigger_mapping"]
+    elif session_number == 2:
+        # Identifying negative cognitions.
+        return ["mi_values", "mi_agenda", "cbt_functional_analysis"]
+    elif session_number == 3:
+        # Challenging false beliefs.
+        return ["mi_decisional_balance", "cbt_reappraisal"]
+    elif session_number == 4:
+        # Restructuring cognitive patterns.
+        return ["cbt_coping_skills", "cbt_problem_solving"]
+    elif session_number == 5:
+        # Behavioral skill building.
+        return ["cbt_stimulus_control", "act_crisis_plan"]
+    elif session_number == 6:
+        # Consolidation & termination.
+        return ["act_support_group", "act_goals"]
+    else:
+        # Default for any sessions beyond 6
+        return ["mi_scales", "cbt_functional_analysis"]
+
 
 def therapist_node(state: DialogueState) -> Dict[str, Any]:
     """
     Generates the therapist's response using a summarized profile and strategy names to save tokens.
     """
     history_text = render_history_for_prompt(state["history"])
+
+    # Step A: Select strategies using the Policy Node
+    recommended_strategies = policy_node(state)
 
     # Track strategy usage
     strategy_counts = Counter(state["strategy_history"])
@@ -834,6 +866,9 @@ PATIENT SUMMARY:
 
 STRATEGY USAGE:
 {strategy_usage}
+
+RECOMMENDED STRATEGIES:
+{recommended_strategies}
 
 AVAILABLE STRATEGIES:
 - MI Strategies: {MI_STRATEGIES}
@@ -881,6 +916,7 @@ CONVERSATION SO FAR:
         user_analysis=state["patient_profile_summary"],
         history_text=history_text,
         strategy_usage=strategy_usage_text,
+        recommended_strategies=recommended_strategies,
         MI_STRATEGIES=get_strategy_names(MI_STRATEGIES),
         CBT_STRATEGIES=get_strategy_names(CBT_STRATEGIES),
         ACTIONABLE_TOOLS=get_strategy_names(ACTIONABLE_TOOLS),
@@ -1037,9 +1073,10 @@ initial_state: DialogueState = {
 }
 
 print("Starting simulation...")
-NUM_SESSIONS = 3
+NUM_SESSIONS = 6
 for session_num in range(NUM_SESSIONS):
     print(f"--- Starting Session {session_num + 1} ---")
+    initial_state["session_number"] = session_num + 1
     result_state = app.invoke(initial_state, config={"recursion_limit": 200})
 
     # After the session, invoke the environment agent
