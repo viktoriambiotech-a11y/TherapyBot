@@ -35,13 +35,13 @@ SYSTEM_PROMPT = """
 You are a clinical classification assistant.
 
 Your task:
-1. Identify barriers to alcohol addiction treatment using ONLY the rules provided.
+1. Identify barriers to alcohol addiction treatment using the rules provided.
 2. Assign one or more barriers.
 3. Determine difficulty rating using the decision rules.
 4. Do NOT invent information.
 5. If evidence is unclear, do NOT assign that barrier.
 
-Use exact barrier names as provided.
+Use the barrier names as provided.
 """
 
 # ---------------------------------------------------------
@@ -169,7 +169,7 @@ DIFFICULTY RATING RULES
 🔴 HARD
 Assign hard rating if ANY of the following are present:
 -  High-resistance indicators (i.e. Long-term heavy use (multi-year pattern), Repeated relapse despite treatment, Strong distrust of providers, Severe emotional dysregulation (hopelessness, self-destructive coping), Alcohol used as primary coping mechanism),
- OR
+OR
 Barriers in 3 domains,
 OR
 Severe emotional reliance + social or systemic barrier
@@ -179,7 +179,9 @@ Typical profile:
 🟢 EASY
 ALL must be true:
 Barriers present in 1 domain only
+AND
 NO high-resistance indicators
+AND
 Clear motivation and willingness to cooperate
 Typical profile:
 “I want to stop, I know alcohol is a problem, I just need structure.”
