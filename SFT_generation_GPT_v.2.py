@@ -614,6 +614,112 @@ ACTIONABLE_TOOLS = [
 # Combine all lists so the therapist node can select from any of them
 ALL_STRATEGIES = MI_STRATEGIES + CBT_STRATEGIES + ACTIONABLE_TOOLS
 
+SESSION_AGENDAS = {
+    1: [
+        {
+            "phase": "Rapport & Goal Alignment",
+            "turn_range": (0, 10),
+            "strategies": ["mi_agenda", "mi_values", "mi_scales"],
+        },
+        {
+            "phase": "Episode Clarification",
+            "turn_range": (11, 20),
+            "strategies": ["cbt_functional_analysis", "cbt_trigger_mapping"],
+        },
+        {
+            "phase": "Closing & Micro-Commitment",
+            "turn_range": (21, 30),
+            "strategies": ["cbt_coping_skills", "cbt_goal_setting", "act_crisis_plan"],
+        },
+    ],
+    2: [
+        {
+            "phase": "Check-in & Review",
+            "turn_range": (0, 10),
+            "strategies": ["mi_scales", "cbt_functional_analysis"],
+        },
+        {
+            "phase": "Identifying Negative Cognitions",
+            "turn_range": (11, 20),
+            "strategies": ["cbt_trigger_mapping", "cbt_reappraisal"],
+        },
+        {
+            "phase": "Closing & Micro-Commitment",
+            "turn_range": (21, 30),
+            "strategies": ["cbt_coping_skills", "act_journaling"],
+        },
+    ],
+    3: [
+        {
+            "phase": "Check-in & Review",
+            "turn_range": (0, 10),
+            "strategies": ["mi_decisional_balance", "cbt_problem_solving"],
+        },
+        {
+            "phase": "Challenging False Beliefs",
+            "turn_range": (11, 20),
+            "strategies": ["cbt_reappraisal", "mi_ep_e"],
+        },
+        {
+            "phase": "Closing & Micro-Commitment",
+            "turn_range": (21, 30),
+            "strategies": ["cbt_refusal", "act_assertive_comm"],
+        },
+    ],
+    4: [
+        {
+            "phase": "Check-in & Review",
+            "turn_range": (0, 10),
+            "strategies": ["mi_scales", "cbt_functional_analysis"],
+        },
+        {
+            "phase": "Restructuring Cognitive Patterns",
+            "turn_range": (11, 20),
+            "strategies": ["cbt_coping_skills", "cbt_stimulus_control"],
+        },
+        {
+            "phase": "Closing & Micro-Commitment",
+            "turn_range": (21, 30),
+            "strategies": ["act_routine", "act_hobbies"],
+        },
+    ],
+    5: [
+        {
+            "phase": "Check-in & Review",
+            "turn_range": (0, 10),
+            "strategies": ["mi_values", "cbt_problem_solving"],
+        },
+        {
+            "phase": "Behavioral Skill Building",
+            "turn_range": (11, 20),
+            "strategies": ["cbt_behavioral_activation", "cbt_exposure"],
+        },
+        {
+            "phase": "Closing & Micro-Commitment",
+            "turn_range": (21, 30),
+            "strategies": ["act_support_group", "act_community"],
+        },
+    ],
+    6: [
+        {
+            "phase": "Review & Consolidate",
+            "turn_range": (0, 10),
+            "strategies": ["cbt_goal_setting", "act_strengths"],
+        },
+        {
+            "phase": "Relapse Prevention & Future Planning",
+            "turn_range": (11, 20),
+            "strategies": ["act_crisis_plan", "act_health"],
+        },
+        {
+            "phase": "Closing & Termination",
+            "turn_range": (21, 30),
+            "strategies": ["act_goals", "act_complementary_therapy"],
+        },
+    ],
+}
+
+
 # LangGraph State Definition
 
 
@@ -646,6 +752,7 @@ class DialogueState(TypedDict):
     patient_state_summary: str
     stressor_ledger: List[Dict[str, Any]]
     session_number: int
+    current_agenda_phase: str
 
 
 DIFFICULTY_DESCRIPTIONS = {
@@ -808,33 +915,30 @@ Based on the above, provide the next patient turn as a JSON object with "reply",
 
 # Therapist Node Logic
 
-def policy_node(state: DialogueState) -> List[str]:
+def policy_node(state: DialogueState) -> Dict[str, Any]:
     """
-    Selects therapeutic strategies based on the session number.
+    Selects therapeutic strategies based on the current session and turn number.
     """
     session_number = state.get("session_number", 1)
+    turn_index = state.get("turn_index", 0)
 
-    if session_number == 1:
-        # Build trust, assessment, set safety/limits.
-        return ["mi_scales", "cbt_trigger_mapping"]
-    elif session_number == 2:
-        # Identifying negative cognitions.
-        return ["mi_values", "mi_agenda", "cbt_functional_analysis"]
-    elif session_number == 3:
-        # Challenging false beliefs.
-        return ["mi_decisional_balance", "cbt_reappraisal"]
-    elif session_number == 4:
-        # Restructuring cognitive patterns.
-        return ["cbt_coping_skills", "cbt_problem_solving"]
-    elif session_number == 5:
-        # Behavioral skill building.
-        return ["cbt_stimulus_control", "act_crisis_plan"]
-    elif session_number == 6:
-        # Consolidation & termination.
-        return ["act_support_group", "act_goals"]
-    else:
-        # Default for any sessions beyond 6
-        return ["mi_scales", "cbt_functional_analysis"]
+    # Get the agenda for the current session
+    session_agenda = SESSION_AGENDAS.get(session_number, [])
+
+    # Find the current phase based on the turn index
+    for phase_info in session_agenda:
+        min_turn, max_turn = phase_info["turn_range"]
+        if min_turn <= turn_index <= max_turn:
+            return {
+                "current_agenda_phase": phase_info["phase"],
+                "recommended_strategies": phase_info["strategies"],
+            }
+
+    # Default if no phase matches (e.g., if turn_index exceeds defined ranges)
+    return {
+        "current_agenda_phase": "Default",
+        "recommended_strategies": ["mi_scales", "cbt_functional_analysis"],
+    }
 
 
 def therapist_node(state: DialogueState) -> Dict[str, Any]:
@@ -844,7 +948,9 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
     history_text = render_history_for_prompt(state["history"])
 
     # Step A: Select strategies using the Policy Node
-    recommended_strategies = policy_node(state)
+    policy_decision = policy_node(state)
+    current_agenda_phase = policy_decision["current_agenda_phase"]
+    recommended_strategies = policy_decision["recommended_strategies"]
 
     # Track strategy usage
     strategy_counts = Counter(state["strategy_history"])
@@ -864,10 +970,15 @@ You should be empathetic, non-judgmental, and collaborative.
 PATIENT SUMMARY:
 {user_analysis}
 
+LATEST PATIENT STATE:
+{patient_state_summary}
+
+CURRENT SESSION PHASE: {current_agenda_phase}
+
 STRATEGY USAGE:
 {strategy_usage}
 
-RECOMMENDED STRATEGIES:
+RECOMMENDED STRATEGIES FOR THIS PHASE:
 {recommended_strategies}
 
 AVAILABLE STRATEGIES:
@@ -878,32 +989,14 @@ AVAILABLE STRATEGIES:
 INSTRUCTIONS:
 - At the beginning of the session, the patient may share recent stressors. Actively listen and explore these challenges using techniques like open-ended questions, reflections, and affirmations.
 - Do not assume prior knowledge of the patient's stressors. Your awareness should come directly from the patient's self-reporting during the session.
-1. Read the patient summary and conversation history carefully.
-2. Select relevant strategies from the available lists to guide your response. Adapt your approach based on the patient's needs and avoid overusing the same strategies.
-3. Ask open-ended questions to explore the patient's challenges, motivations, and triggers.
-4. Build rapport using affirmations and reflective listening.
-5. If you suggest a coping mechanism or tool, refer to the "Actionable Tools" list.
-6. Keep your response concise and natural.
-7. Write the therapist's next reply only. Do not include 'Therapist:' labels or any narration.
-
-Here is an example of a layered, empathetic dialogue:
-Patient: Hi. . . um, thanks for seeing me today. I wasn’t sure what to expect.
-Therapist: Hi Mark, I really appreciate you coming in. Starting this process can feel overwhelming,
-but I’m here to support you. What’s been on your mind lately?
-Patient: I’ve been feeling really stuck. I know I want to quit smoking, but every time I try, I just
-feel like I’m failing all over again.
-Therapist: I hear you, Mark. Quitting smoking is one of the hardest challenges anyone can take
-on, and it’s completely natural to feel this way. I’ve worked with others who’ve felt the same—they
-described it as climbing a mountain that feels too steep. But I’ve also seen them reach the top,
-step by step. Can we talk about what makes the climb feel steep for you right now?
-Patient: It’s the cravings. They just hit me out of nowhere, and I don’t know how to handle them.
-Therapist: Cravings can feel like a storm, can’t they? I worked with someone once who described
-their cravings as waves that kept crashing over them. Together, we found ways for them to ride out
-those waves, like focusing on a small activity or changing their environment. Could we explore
-some strategies that might help you ride out your cravings too?
-Patient: Sure, I guess.
-Therapist: Great. Let’s start with understanding when these cravings hit hardest. For example, is
-it during specific times of day or situations?
+1. Read the patient summary, their latest state, and the conversation history carefully.
+2. Your primary goal is to address the objective of the CURRENT SESSION PHASE: {current_agenda_phase}.
+3. Use the RECOMMENDED STRATEGIES to guide your response. Adapt your approach based on the patient's needs and avoid overusing the same strategies.
+4. If the CURRENT SESSION PHASE is "Closing & Micro-Commitment", your main task is to collaborate with the patient to define a concrete, time-bounded micro-assignment. This could be a trigger log, a coping card, a refusal-line rehearsal, or a stimulus-control action. Make it small, specific, and achievable before the next session.
+5. Ask open-ended questions to explore the patient's challenges, motivations, and triggers.
+6. Build rapport using affirmations and reflective listening.
+7. Keep your response concise and natural.
+8. Write the therapist's next reply only. Do not include 'Therapist:' labels or any narration.
 
 After your response, you MUST list the strategies you used on a new line. Use the format:
 **Strategies:** Strategy Name 1, Strategy Name 2
@@ -914,6 +1007,8 @@ CONVERSATION SO FAR:
 
     therapist_instructions = therapist_instructions_template.format(
         user_analysis=state["patient_profile_summary"],
+        patient_state_summary=state["patient_state_summary"],
+        current_agenda_phase=current_agenda_phase,
         history_text=history_text,
         strategy_usage=strategy_usage_text,
         recommended_strategies=recommended_strategies,
@@ -950,6 +1045,7 @@ CONVERSATION SO FAR:
         "history": new_history,
         "turn_index": new_turn_index,
         "strategy_history": new_strategy_history,
+        "current_agenda_phase": current_agenda_phase,
     }
 
 
