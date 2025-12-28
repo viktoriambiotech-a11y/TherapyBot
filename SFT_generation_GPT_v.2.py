@@ -1074,10 +1074,12 @@ initial_state: DialogueState = {
 
 print("Starting simulation...")
 NUM_SESSIONS = 6
+all_session_results = []
 for session_num in range(NUM_SESSIONS):
     print(f"--- Starting Session {session_num + 1} ---")
     initial_state["session_number"] = session_num + 1
     result_state = app.invoke(initial_state, config={"recursion_limit": 200})
+    all_session_results.append(result_state)
 
     # After the session, invoke the environment agent
     if session_num < NUM_SESSIONS - 1:
@@ -1093,18 +1095,17 @@ def print_dialogue(history: List[Dict[str, str]]):
 
 
 # Display results
+for i, session_result in enumerate(all_session_results):
+    print(f"\n--- Session {i + 1} Transcript ---")
+    print_dialogue(session_result["history"])
 
-# Print the simulated dialogue
-print_dialogue(result_state["history"])
-
-# Print the strategies used
-print("\n--- Strategies Used ---\n")
-if result_state["strategy_history"]:
-    unique_strategies = sorted(list(set(result_state["strategy_history"])))
-    for strategy in unique_strategies:
-        print(f"- {strategy}")
-else:
-    print("No strategies were recorded.")
+    print(f"\n--- Session {i + 1} Strategies Used ---")
+    if session_result["strategy_history"]:
+        unique_strategies = sorted(list(set(session_result["strategy_history"])))
+        for strategy in unique_strategies:
+            print(f"- {strategy}")
+    else:
+        print("No strategies were recorded for this session.")
 
 
 # Set output directory
@@ -1117,15 +1118,20 @@ output_filename = f"simulated_dialogue_{timestamp}.json"
 output_path = os.path.join(output_dir, output_filename)
 
 # Prepare data for saving
-output_data = {
-    "patient_profile": result_state["patient_profile"],
-    "difficulty": result_state["difficulty"],
-    "history": result_state["history"],
-    "strategy_history": result_state["strategy_history"],
-}
+output_data = [
+    {
+        "session_number": i + 1,
+        "patient_profile": session_result["patient_profile"],
+        "difficulty": session_result["difficulty"],
+        "history": session_result["history"],
+        "strategy_history": session_result["strategy_history"],
+        "stressor_ledger": session_result.get("stressor_ledger", []),
+    }
+    for i, session_result in enumerate(all_session_results)
+]
 
 # Save JSON file
 with open(output_path, "w", encoding="utf-8") as f:
-    json.dump(output_data, f, indent=2)
+    json.dump({"sessions": output_data}, f, indent=2)
 
 print(f"Saved dialogue to {output_path}")
