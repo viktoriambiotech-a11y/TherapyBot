@@ -619,102 +619,102 @@ SESSION_AGENDAS = {
     1: [
         {
             "phase": "Rapport & Goal Alignment",
-            "turn_range": (0, 10),
+            "turn_range": (0, 20),
             "strategies": ["mi_agenda", "mi_values", "mi_scales"],
         },
         {
             "phase": "Episode Clarification",
-            "turn_range": (11, 20),
+            "turn_range": (21, 40),
             "strategies": ["cbt_functional_analysis", "cbt_trigger_mapping"],
         },
         {
             "phase": "Closing & Micro-Commitment",
-            "turn_range": (21, 30),
+            "turn_range": (41, 60),
             "strategies": ["cbt_coping_skills", "cbt_goal_setting", "act_crisis_plan"],
         },
     ],
     2: [
         {
             "phase": "Check-in & Review",
-            "turn_range": (0, 10),
+            "turn_range": (0, 20),
             "strategies": ["mi_scales", "cbt_functional_analysis"],
         },
         {
             "phase": "Identifying Negative Cognitions",
-            "turn_range": (11, 20),
+            "turn_range": (21, 40),
             "strategies": ["cbt_trigger_mapping", "cbt_reappraisal"],
         },
         {
             "phase": "Closing & Micro-Commitment",
-            "turn_range": (21, 30),
+            "turn_range": (41, 60),
             "strategies": ["cbt_coping_skills", "act_journaling"],
         },
     ],
     3: [
         {
             "phase": "Check-in & Review",
-            "turn_range": (0, 10),
+            "turn_range": (0, 20),
             "strategies": ["mi_decisional_balance", "cbt_problem_solving"],
         },
         {
             "phase": "Challenging False Beliefs",
-            "turn_range": (11, 20),
+            "turn_range": (21, 40),
             "strategies": ["cbt_reappraisal", "mi_ep_e"],
         },
         {
             "phase": "Closing & Micro-Commitment",
-            "turn_range": (21, 30),
+            "turn_range": (41, 60),
             "strategies": ["cbt_refusal", "act_assertive_comm"],
         },
     ],
     4: [
         {
             "phase": "Check-in & Review",
-            "turn_range": (0, 10),
+            "turn_range": (0, 20),
             "strategies": ["mi_scales", "cbt_functional_analysis"],
         },
         {
             "phase": "Restructuring Cognitive Patterns",
-            "turn_range": (11, 20),
+            "turn_range": (21, 40),
             "strategies": ["cbt_coping_skills", "cbt_stimulus_control"],
         },
         {
             "phase": "Closing & Micro-Commitment",
-            "turn_range": (21, 30),
+            "turn_range": (41, 60),
             "strategies": ["act_routine", "act_hobbies"],
         },
     ],
     5: [
         {
             "phase": "Check-in & Review",
-            "turn_range": (0, 10),
+            "turn_range": (0, 20),
             "strategies": ["mi_values", "cbt_problem_solving"],
         },
         {
             "phase": "Behavioral Skill Building",
-            "turn_range": (11, 20),
+            "turn_range": (21, 40),
             "strategies": ["cbt_behavioral_activation", "cbt_exposure"],
         },
         {
             "phase": "Closing & Micro-Commitment",
-            "turn_range": (21, 30),
+            "turn_range": (41, 60),
             "strategies": ["act_support_group", "act_community"],
         },
     ],
     6: [
         {
             "phase": "Review & Consolidate",
-            "turn_range": (0, 10),
+            "turn_range": (0, 20),
             "strategies": ["cbt_goal_setting", "act_strengths"],
         },
         {
             "phase": "Relapse Prevention & Future Planning",
-            "turn_range": (11, 20),
+            "turn_range": (21, 40),
             "strategies": ["act_crisis_plan", "act_health"],
         },
         {
             "phase": "Closing & Termination",
-            "turn_range": (21, 30),
+            "turn_range": (41, 60),
             "strategies": ["act_goals", "act_complementary_therapy"],
         },
     ],
@@ -1142,6 +1142,10 @@ def environment_agent_node(state: DialogueState) -> DialogueState:
     # 2. Log the stressor
     new_stressor_ledger = state.get("stressor_ledger", []) + [stressor]
 
+    # Print the stressor if it's not the first session
+    if state.get("session_number", 1) > 1:
+        print(f"\n--- Stressor Injected Between Sessions ---\n{stressor['Description']}\n")
+
     # 3. Apply rule-based updates to patient state
     # (This is a simplified example)
     if "Work" in stressor["Category"]:
@@ -1151,7 +1155,6 @@ def environment_agent_node(state: DialogueState) -> DialogueState:
     # 4. Reset for the next session
     return {
         **state,
-        "history": [], # Reset history for the new session
         "turn_index": 0,
         "stressor_ledger": new_stressor_ledger,
         "patient_resolution_status": False,
@@ -1276,9 +1279,13 @@ all_session_results = []
 for session_num in range(NUM_SESSIONS):
     print(f"--- Starting Session {session_num + 1} ---")
     current_state["session_number"] = session_num + 1
+    print(f"\n--- Patient State at Start of Session {session_num + 1} ---")
+    print(current_state["patient_internal_state"])
     # The graph now handles the environment node internally
     result_state = app.invoke(current_state, config={"recursion_limit": 200})
     all_session_results.append(result_state)
+    print(f"\n--- Patient State at End of Session {session_num + 1} ---")
+    print(result_state["patient_internal_state"])
     # The state for the next session is the output of the previous one
     current_state = result_state
 
@@ -1306,7 +1313,7 @@ for i, session_result in enumerate(all_session_results):
 
 
 # Set output directory
-output_dir = "."
+output_dir = "C:/Users/vikto/Code/LangChain_code/SFT_Multi_turn_dialogue"
 os.makedirs(output_dir, exist_ok=True)
 
 # Create timestamped filename inside output directory
