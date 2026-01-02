@@ -826,7 +826,7 @@ for session_number in range(1, 7):
     print(f"\n--- Session {session_number} Complete ---\n")
 
 # Set output directory
-output_dir = "C:\Users\vikto\RecoveryBot Project"
+output_dir = "C:/Users/vikto/RecoveryBot Project"
 os.makedirs(output_dir, exist_ok=True)
 
 # Create timestamped filename inside output directory
