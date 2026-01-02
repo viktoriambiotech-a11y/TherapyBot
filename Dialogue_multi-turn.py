@@ -338,6 +338,319 @@ ACTIONABLE_TOOLS = [
 # Combine all lists so the therapist node can select from any of them
 ALL_STRATEGIES = MI_STRATEGIES + CBT_STRATEGIES + ACTIONABLE_TOOLS
 
+ENVIRONMENT_STRESSORS = [
+  {
+    "Category": "Social/Environmental",
+    "Stressor": "Peer pressure",
+    "Description": "Friends invited me to a bar after work",
+    "Severity": "3",
+    "Likely Duration": "Minutes"
+  },
+  {
+    "Category": "Social/Environmental",
+    "Stressor": "Exposure to drinking cues",
+    "Description": "Walked past my usual liquor store after a stressful day",
+    "Severity": "2",
+    "Likely Duration": "Minutes"
+  },
+
+  {
+    "Category": "Social/Environmental",
+    "Stressor": "Drinking-centered events",
+    "Description": "Attended an event where alcohol was central",
+    "Severity": "2",
+    "Likely Duration": "Days"
+  },
+  {
+    "Category": "Social/Environmental",
+    "Stressor": "Lack of social support",
+    "Description": "No one to call when cravings hit",
+    "Severity": "2",
+    "Likely Duration": "Hours-Weeks"
+  },
+  {
+    "Category": "Social/Environmental",
+    "Stressor": "Social isolation",
+    "Description": "Spent the weekend alone with no plans",
+    "Severity": "3",
+    "Likely Duration": "Days–Weeks"
+  },
+
+  {
+    "Category": "Interpersonal",
+    "Stressor": "Relationship conflict",
+    "Description": "Unresolved argument with partner",
+    "Severity": "3",
+    "Likely Duration": "Days–Weeks"
+  },
+  {
+    "Category": "Interpersonal",
+    "Stressor": "Breakup/rejection",
+    "Description": "Partner ended relationship unexpectedly",
+    "Severity": "3",
+    "Likely Duration": "Weeks–Months"
+  },
+  {
+    "Category": "Interpersonal",
+    "Stressor": "Family conflict",
+    "Description": "Ongoing tension or conflict with family members",
+    "Severity": "3",
+    "Likely Duration": "Weeks–Months"
+  },
+
+  {
+    "Category": "Work/Academic",
+    "Stressor": "Deadlines/pressure",
+    "Description": "Multiple deadlines in same week",
+    "Severity": "2",
+    "Likely Duration": "Days–Weeks"
+  },
+  {
+    "Category": "Work/Academic",
+    "Stressor": "Job insecurity",
+    "Description": "Fear of layoffs or reduced hours",
+    "Severity": "3",
+    "Likely Duration": "Weeks–Months"
+  },
+
+  {
+    "Category": "Work/Academic",
+    "Stressor": "Burnout/overwork",
+    "Description": "Sustained overtime with little recovery",
+    "Severity": "2",
+    "Likely Duration": "Weeks–Months"
+  },
+  {
+    "Category": "Work/Academic",
+    "Stressor": "Academic failure",
+    "Description": "Failed an important exam",
+    "Severity": "2",
+    "Likely Duration": "Days–Weeks"
+  },
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Negative emotions",
+    "Description": "Persistent anxiety, anger, or sadness",
+    "Severity": "3",
+    "Likely Duration": "Hours–Weeks"
+  },
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Boredom/anhedonia",
+    "Description": "Nothing feels engaging or rewarding",
+    "Severity": "1",
+    "Likely Duration": "Days–Weeks"
+  },
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Overconfidence",
+    "Description": "Feeling cured; belief one drink is safe",
+    "Severity": "2",
+    "Likely Duration": "Hours–Days"
+  },
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Low self-efficacy",
+    "Description": "Doubting ability to stay sober",
+    "Severity": "3",
+    "Likely Duration": "Weeks–Months"
+  },
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Cognitive distortions",
+    "Description": "I've already slipped so it doesn't matter",
+    "Severity": "3",
+    "Likely Duration": "Hours–Days"
+  },
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Rumination",
+    "Description": "Can't stop thinking about drinking",
+    "Severity": "2",
+    "Likely Duration": "Days"
+  },
+  {
+    "Category": "Physical/Biological",
+    "Stressor": "Pain or injury",
+    "Description": "Chronic or acute pain",
+    "Severity": "2",
+    "Likely Duration": "Days–Weeks"
+  },
+
+  {
+    "Category": "Physical/Biological",
+    "Stressor": "Sleep deprivation",
+    "Description": "Several nights of poor sleep due to racing thoughts or insomnia",
+    "Severity": "2",
+    "Likely Duration": "Days–Weeks"
+  },
+  {
+    "Category": "Physical/Biological",
+    "Stressor": "Withdrawal",
+    "Description": "Ongoing irritability and anxiety post-quitting",
+    "Severity": "2",
+    "Likely Duration": "Weeks–Months"
+  },
+  {
+    "Category": "Life Events",
+    "Stressor": "Major transitions",
+    "Description": "Moving to a new job / new city",
+    "Severity": "2",
+    "Likely Duration": "Weeks–Months"
+  },
+  {
+    "Category": "Life Events",
+    "Stressor": "Bereavement",
+    "Description": "Death of a loved one",
+    "Severity": "3",
+    "Likely Duration": "Months"
+  },
+
+  {
+    "Category": "Life Events",
+    "Stressor": "Financial crisis",
+    "Description": "Unexpected bills or debt",
+    "Severity": "3",
+    "Likely Duration": "Weeks–Months"
+  },
+
+  {
+    "Category": "Treatment/Recovery",
+    "Stressor": "Negative treatment experience",
+    "Description": "Felt judged by clinician",
+    "Severity": "2",
+    "Likely Duration": "Weeks–Months"
+  },
+ {
+    "Category": "Treatment/Recovery",
+    "Stressor": "Successful refusal",
+    "Description": "Refused a drink",
+    "Severity": "3",
+    "Likely Duration": "Hours–Days"
+  },
+ {
+    "Category": "Treatment/Recovery",
+    "Stressor": "Successful use of coping strategy",
+    "Description": "Did not act on an urge to drink by using a coping strategy",
+    "Severity": "3",
+    "Likely Duration": "Hours–Days"
+  },
+
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Cognitive impairment / mental fog",
+    "Description": "Difficulty concentrating and remembering coping strategies",
+    "Severity": "2",
+    "Likely Duration": "Days–Weeks"
+  },
+  {
+    "Category": "Emotional/Cognitive",
+    "Stressor": "Trauma reminders",
+    "Description": "Encountered a reminder of a past traumatic event",
+    "Severity": "3",
+    "Likely Duration": "Hours–Days"
+  },
+
+  {
+    "Category": "Social/Environmental",
+    "Stressor": "Living with active substance users",
+    "Description": "Household member continues drinking or using substances",
+    "Severity": "3",
+    "Likely Duration": "Weeks–Months"
+  },
+
+]
+
+import math
+
+class PatientMemory:
+    """A class to manage the patient's evolving state across sessions."""
+    def __init__(self):
+        self.craving_level = 5
+        self.trigger_salience = 5
+        self.motivation = 5
+        self.self_efficacy = 5
+        self.cognitive_control = 5
+        self.habit_strength = 5
+        self.lapse_flag = False
+        self.stressor_ledger = [] # To track stressors between sessions
+
+    def get_summary(self) -> str:
+        """Returns a string summary of the patient's current memory state."""
+        summary = (
+            f"  - Craving Level: {self.craving_level}/10\n"
+            f"  - Trigger Salience/Stress: {self.trigger_salience}/10\n"
+            f"  - Motivation: {self.motivation}/10\n"
+            f"  - Self-Efficacy/Confidence: {self.self_efficacy}/10\n"
+            f"  - Cognitive Control/Adherence: {self.cognitive_control}/10\n"
+            f"  - Habit Strength: {self.habit_strength}/10\n"
+            f"  - Recent Lapse: {'Yes' if self.lapse_flag else 'No'}"
+        )
+        if self.stressor_ledger:
+            summary += "\n  - Recent Stressors:\n"
+            for stressor in self.stressor_ledger:
+                summary += f"    - {stressor['Stressor']}: {stressor['Description']}\n"
+        return summary
+
+    def update_after_session(self):
+        """Updates memory to reflect gains from a therapy session."""
+        self.motivation = min(10, self.motivation + 1)
+        self.self_efficacy = min(10, self.self_efficacy + 1)
+        self.cognitive_control = min(10, self.cognitive_control + 1)
+        self.trigger_salience = max(0, self.trigger_salience - 1)
+
+        # Reset inter-session state
+        self.stressor_ledger = []
+        self.lapse_flag = False
+
+    def _calculate_lapse_probability(self) -> float:
+        """Calculates the probability of a lapse based on current memory state."""
+        # Define weights for the logistic regression model
+        w1, w2, w3, w4, w5, w6 = 0.2, 0.2, 0.2, 0.2, 0.1, 0.1 # Example weights
+
+        # Calculate the weighted sum
+        z = (w1 * self.craving_level +
+             w2 * self.trigger_salience -
+             w3 * self.self_efficacy -
+             w4 * self.cognitive_control -
+             w5 * self.motivation +
+             w6 * self.habit_strength)
+
+        # Apply the sigmoid function to get a probability
+        probability = 1 / (1 + math.exp(-z))
+        return probability
+
+    def check_for_lapse(self):
+        """Checks if a lapse occurs based on calculated probability."""
+        lapse_probability = self._calculate_lapse_probability()
+        if random.random() < lapse_probability:
+            self.lapse_flag = True
+            # A lapse temporarily reduces self-efficacy and motivation
+            self.self_efficacy = max(0, self.self_efficacy - 2)
+            self.motivation = max(0, self.motivation - 2)
+
+    def apply_stressors(self, stressors: List[Dict[str, Any]]):
+        """Applies a list of stressors to the patient's memory."""
+        self.stressor_ledger.extend(stressors)
+        for stressor in stressors:
+            category = stressor.get("Category", "")
+            if category == "Social/Environmental":
+                self.trigger_salience = min(10, self.trigger_salience + 1)
+                self.craving_level = min(10, self.craving_level + 1)
+            elif category == "Interpersonal":
+                self.trigger_salience = min(10, self.trigger_salience + 2)
+            elif category == "Work/Academic":
+                self.self_efficacy = max(0, self.self_efficacy - 1)
+            elif category == "Emotional/Cognitive":
+                self.craving_level = min(10, self.craving_level + 1)
+                self.motivation = max(0, self.motivation - 1)
+            elif category == "Physical/Biological":
+                self.self_efficacy = max(0, self.self_efficacy - 1)
+            elif category == "Life Events":
+                self.trigger_salience = min(10, self.trigger_salience + 2)
+
+        self.check_for_lapse()
+
 # LangGraph State Definition
 
 
@@ -357,6 +670,7 @@ class DialogueState(TypedDict):
         patient_resolution_status: Boolean indicating if the patient has achieved resolution.
         patient_state_summary: A summary of the patient's state.
         session_number: The current session number (1-6).
+        patient_memory: 'PatientMemory'
     """
 
     history: List[Dict[str, str]]
@@ -574,6 +888,9 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
     """
     Generates the therapist's response using a summarized profile and strategy names to save tokens.
     """
+    if "patient_memory" not in state:
+        state["patient_memory"] = PatientMemory()
+
     history_text = render_history_for_prompt(state["history"])
 
     # Track strategy usage
@@ -696,6 +1013,25 @@ SESSION AGENDA:
     }
 
 
+def environment_agent_node(state: DialogueState) -> Dict[str, Any]:
+    """
+    Simulates environmental stressors affecting the patient between sessions.
+    """
+    # Randomly select 1 to 3 stressors to apply
+    num_stressors = random.randint(1, 3)
+    selected_stressors = random.sample(ENVIRONMENT_STRESSORS, num_stressors)
+
+    patient_memory = state["patient_memory"]
+    patient_memory.apply_stressors(selected_stressors)
+
+    print(f"--- Environment Agent Applied Stressors ---")
+    print(f"Patient memory state at the START of session {state['session_number']}:")
+    print(patient_memory.get_summary())
+
+    # This node only updates the patient_memory, so we return it
+    return {"patient_memory": patient_memory}
+
+
 # Graph Routing and Construction
 
 
@@ -721,22 +1057,22 @@ graph = StateGraph(DialogueState)
 graph.add_node("patient", patient_node)
 graph.add_node("therapist", therapist_node)
 
-graph.set_entry_point("patient")
-
-graph.add_conditional_edges(
-    "patient",
-    route_after_patient,
-    {
-        "therapist": "therapist",
-        END: END,
-    },
-)
+graph.set_entry_point("therapist")
 
 graph.add_conditional_edges(
     "therapist",
     route_after_therapist,
     {
         "patient": "patient",
+        END: END,
+    },
+)
+
+graph.add_conditional_edges(
+    "patient",
+    route_after_patient,
+    {
+        "therapist": "therapist",
         END: END,
     },
 )
@@ -781,32 +1117,42 @@ print("Summary complete.")
 # Store the data for all sessions
 sessions_data = []
 
-for session_number in range(1, 7):
+# Initialize Patient Memory
+patient_memory = PatientMemory()
+
+# Print initial memory state
+print("--- Initial Patient Memory State (Before Session 1) ---")
+print(patient_memory.get_summary())
+
+
+for session_number in range(1, 3):
     print(f"--- Running Session #{session_number} ---")
 
-    # The patient starts the first session, but the therapist should start all subsequent sessions.
-    history_for_this_session = []
     if session_number > 1:
-        history_for_this_session.append(
-            {"role": "therapist", "content": "Welcome back. How have you been since our last session?"}
-        )
+        environment_agent_node({"session_number": session_number, "patient_memory": patient_memory})
 
-    initial_state: DialogueState = {
-        "history": history_for_this_session,
+    # Invoke the graph for the current session
+    result_state = app.invoke({
+        "history": [],
         "patient_profile": example_patient_profile.strip(),
         "patient_profile_summary": patient_profile_summary,
         "difficulty": difficulty_setting,
         "difficulty_description": DIFFICULTY_DESCRIPTIONS[difficulty_setting],
-        "max_turns": 60,
+        "max_turns": 6,
         "turn_index": 0,
         "strategy_history": [],
         "patient_resolution_status": False,
         "patient_state_summary": "",
         "session_number": session_number,
-    }
+        "patient_memory": patient_memory,
+    }, config={"recursion_limit": 200})
 
-    # Invoke the graph for the current session
-    result_state = app.invoke(initial_state, config={"recursion_limit": 200})
+    # Update patient memory with post-session gains
+    patient_memory.update_after_session()
+
+    print(f"\nPatient memory state at the END of session {session_number}:")
+    print(patient_memory.get_summary())
+
 
     # Get the unique strategies used in this session
     strategies_this_session = sorted(list(set(result_state.get("strategy_history", []))))
@@ -826,7 +1172,7 @@ for session_number in range(1, 7):
     print(f"\n--- Session {session_number} Complete ---\n")
 
 # Set output directory
-output_dir = "C:/Users/vikto/RecoveryBot Project"
+output_dir = "outputs"
 os.makedirs(output_dir, exist_ok=True)
 
 # Create timestamped filename inside output directory
