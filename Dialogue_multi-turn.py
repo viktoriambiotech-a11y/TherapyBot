@@ -1024,9 +1024,9 @@ def environment_agent_node(state: DialogueState) -> Dict[str, Any]:
     patient_memory = state["patient_memory"]
     patient_memory.apply_stressors(selected_stressors)
 
-    print(f"--- Environment Agent Applied Stressors ---")
-    print(f"Patient memory state at the START of session {state['session_number']}:")
-    print(patient_memory.get_summary())
+    # print(f"--- Environment Agent Applied Stressors ---")
+    # print(f"Patient memory state at the START of session {state['session_number']}:")
+    # print(patient_memory.get_summary())
 
     # This node only updates the patient_memory, so we return it
     return {"patient_memory": patient_memory}
@@ -1121,12 +1121,14 @@ sessions_data = []
 patient_memory = PatientMemory()
 
 # Print initial memory state
-print("--- Initial Patient Memory State (Before Session 1) ---")
-print(patient_memory.get_summary())
+# print("--- Initial Patient Memory State (Before Session 1) ---")
+# print(patient_memory.get_summary())
 
 
-for session_number in range(1, 3):
+for session_number in range(1, 7):
     print(f"--- Running Session #{session_number} ---")
+
+    initial_memory_summary = patient_memory.get_summary()
 
     if session_number > 1:
         environment_agent_node({"session_number": session_number, "patient_memory": patient_memory})
@@ -1138,7 +1140,7 @@ for session_number in range(1, 3):
         "patient_profile_summary": patient_profile_summary,
         "difficulty": difficulty_setting,
         "difficulty_description": DIFFICULTY_DESCRIPTIONS[difficulty_setting],
-        "max_turns": 6,
+        "max_turns": 60,
         "turn_index": 0,
         "strategy_history": [],
         "patient_resolution_status": False,
@@ -1150,8 +1152,8 @@ for session_number in range(1, 3):
     # Update patient memory with post-session gains
     patient_memory.update_after_session()
 
-    print(f"\nPatient memory state at the END of session {session_number}:")
-    print(patient_memory.get_summary())
+    # print(f"\nPatient memory state at the END of session {session_number}:")
+    # print(patient_memory.get_summary())
 
 
     # Get the unique strategies used in this session
@@ -1161,7 +1163,9 @@ for session_number in range(1, 3):
     session_data = {
         "session_number": session_number,
         "session_goals": SESSION_GOALS.get(session_number, {}),
+        "patient_memory_initial": initial_memory_summary,
         "dialogue": result_state["history"],
+        "patient_memory_final": patient_memory.get_summary(),
         "strategies_used": strategies_this_session,
     }
     sessions_data.append(session_data)
@@ -1172,7 +1176,7 @@ for session_number in range(1, 3):
     print(f"\n--- Session {session_number} Complete ---\n")
 
 # Set output directory
-output_dir = "outputs"
+output_dir = "C:\\Users\\vikto\\RecoveryBot Project"
 os.makedirs(output_dir, exist_ok=True)
 
 # Create timestamped filename inside output directory
