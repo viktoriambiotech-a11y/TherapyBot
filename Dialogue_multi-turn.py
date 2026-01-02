@@ -778,13 +778,12 @@ print("Summarizing patient profile...")
 patient_profile_summary = summarize_patient_profile(example_patient_profile.strip())
 print("Summary complete.")
 
-# Store the full dialogue history across all sessions
-full_history = []
-all_strategies_used = []
+# Store the data for all sessions
+sessions_data = []
 
 for session_number in range(1, 7):
-    print(f"\n--- Session #{session_number} ---\n")
-    print(f"patient_profile: {example_patient_profile.strip()}")
+    print(f"--- Running Session #{session_number} ---")
+
     # The patient starts the first session, but the therapist should start all subsequent sessions.
     history_for_this_session = []
     if session_number > 1:
@@ -809,43 +808,22 @@ for session_number in range(1, 7):
     # Invoke the graph for the current session
     result_state = app.invoke(initial_state, config={"recursion_limit": 200})
 
-    # Append the session's history to the full history
-    full_history.extend(result_state["history"])
-    all_strategies_used.extend(result_state["strategy_history"])
+    # Get the unique strategies used in this session
+    strategies_this_session = sorted(list(set(result_state.get("strategy_history", []))))
 
-    strategies_this_session = result_state.get("strategy_history", [])
+    # Store the results for this session
+    session_data = {
+        "session_number": session_number,
+        "session_goals": SESSION_GOALS.get(session_number, {}),
+        "dialogue": result_state["history"],
+        "strategies_used": strategies_this_session,
+    }
+    sessions_data.append(session_data)
+
     if strategies_this_session:
-        print(f"**Strategies:** {', '.join(sorted(list(set(strategies_this_session))))}")
+        print(f"**Strategies Used:** {', '.join(strategies_this_session)}")
 
     print(f"\n--- Session {session_number} Complete ---\n")
-
-# The final state after all sessions
-# Note: result_state will only contain the state of the last session.
-# We have manually collected the history and strategies across all sessions.
-
-
-def print_dialogue(history: List[Dict[str, str]]):
-    """Prints the dialogue history in a readable format."""
-    print("\n--- Dialogue Transcript ---\n")
-    for i, msg in enumerate(history):
-        prefix = "Patient" if msg["role"] == "patient" else "Therapist"
-        print(f"{i + 1:02d} {prefix}: {msg['content']}\n")
-
-
-# Display results
-
-# Print the simulated dialogue
-print_dialogue(full_history)
-
-# Print the strategies used
-print("\n--- Strategies Used ---\n")
-if all_strategies_used:
-    unique_strategies = sorted(list(set(all_strategies_used)))
-    for strategy in unique_strategies:
-        print(f"- {strategy}")
-else:
-    print("No strategies were recorded.")
-
 
 # Set output directory
 output_dir = "outputs"
@@ -860,8 +838,7 @@ output_path = os.path.join(output_dir, output_filename)
 output_data = {
     "patient_profile": example_patient_profile.strip(),
     "difficulty": difficulty_setting,
-    "history": full_history,
-    "strategy_history": all_strategies_used,
+    "sessions": sessions_data,
 }
 
 # Save JSON file
