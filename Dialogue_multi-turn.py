@@ -615,9 +615,9 @@ AVAILABLE STRATEGIES:
 
 INSTRUCTIONS:
 1. Read the patient summary and conversation history carefully.
-2. Follow the session agenda provided below.
+2. Follow the session agenda provided below as an internal guide. Do not mention the agenda items (e.g., "Functional Analysis," "Actionable Step") in your response.
 3. Select relevant strategies from the available lists to guide your response. Adapt your approach based on the patient's needs and avoid overusing the same strategies.
-3. Ask open-ended questions to explore the patient's challenges, motivations, and triggers.
+4. Ask open-ended questions to explore the patient's challenges, motivations, and triggers.
 4. Build rapport using affirmations and reflective listening.
 5. If you suggest a coping mechanism or tool, refer to the "Actionable Tools" list.
 6. Keep your response concise and natural.
@@ -783,10 +783,17 @@ full_history = []
 all_strategies_used = []
 
 for session_number in range(1, 7):
-    print(f"\n--- Starting Simulation for Session {session_number} ---\n")
+    print(f"\n--- Session #{session_number} ---\n")
+    print(f"patient_profile: {example_patient_profile.strip()}")
+    # The patient starts the first session, but the therapist should start all subsequent sessions.
+    history_for_this_session = []
+    if session_number > 1:
+        history_for_this_session.append(
+            {"role": "therapist", "content": "Welcome back. How have you been since our last session?"}
+        )
 
     initial_state: DialogueState = {
-        "history": [],  # empty: patient will start each session with a fresh history
+        "history": history_for_this_session,
         "patient_profile": example_patient_profile.strip(),
         "patient_profile_summary": patient_profile_summary,
         "difficulty": difficulty_setting,
@@ -805,6 +812,10 @@ for session_number in range(1, 7):
     # Append the session's history to the full history
     full_history.extend(result_state["history"])
     all_strategies_used.extend(result_state["strategy_history"])
+
+    strategies_this_session = result_state.get("strategy_history", [])
+    if strategies_this_session:
+        print(f"**Strategies:** {', '.join(sorted(list(set(strategies_this_session))))}")
 
     print(f"\n--- Session {session_number} Complete ---\n")
 
