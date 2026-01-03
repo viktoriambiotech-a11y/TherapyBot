@@ -2,9 +2,12 @@
 """
 Multiturn Therapeutic Dialogues Generation
 
-Recreates a single-session, multi-turn role-play setup:
- - Patient Agent: Structured profile and difficulty level.
- - Therapist Agent: MI/CBT-consistent strategies.
+Recreates a multi-session, multi-turn role-play setup:
+ - Therapist Agent Node: Reads patient state + stressor ledger, Chooses intervention style, Generates dialogue
+ - Patient Agent Node: Maintains internal state vector, Reports subjective experience, Makes decisions via State Update Node (relapse/no relapse)
+ - State Update Node (Non-LLM): Applies equations, Updates state deterministically
+ - Environment Node: Samples stressors, Updates stressor ledger
+
 """
 
 import json
@@ -359,14 +362,14 @@ ENVIRONMENT_STRESSORS = [
     "Stressor": "Drinking-centered events",
     "Description": "Attended an event where alcohol was central",
     "Severity": "2",
-    "Likely Duration": "Days"
+    "Likely Duration": "Hours-Days"
   },
   {
     "Category": "Social/Environmental",
     "Stressor": "Lack of social support",
     "Description": "No one to call when cravings hit",
     "Severity": "2",
-    "Likely Duration": "Hours-Weeks"
+    "Likely Duration": "Hours"
   },
   {
     "Category": "Social/Environmental",
@@ -409,7 +412,7 @@ ENVIRONMENT_STRESSORS = [
     "Category": "Work/Academic",
     "Stressor": "Job insecurity",
     "Description": "Fear of layoffs or reduced hours",
-    "Severity": "3",
+    "Severity": "2",
     "Likely Duration": "Weeks–Months"
   },
 
@@ -606,7 +609,7 @@ class PatientMemory:
     def _calculate_lapse_probability(self) -> float:
         """Calculates the probability of a lapse based on current memory state."""
         # Define weights for the logistic regression model
-        w1, w2, w3, w4, w5, w6 = 0.2, 0.2, 0.2, 0.2, 0.1, 0.1 # Example weights
+        w1, w2, w3, w4, w5, w6 = 0.3, 0.2, 0.2, 0.1, 0.1, 0.3 # Example weights
 
         # Calculate the weighted sum
         z = (w1 * self.craving_level +
@@ -625,9 +628,10 @@ class PatientMemory:
         lapse_probability = self._calculate_lapse_probability()
         if random.random() < lapse_probability:
             self.lapse_flag = True
-            # A lapse temporarily reduces self-efficacy and motivation
+            # A lapse temporarily reduces self-efficacy and motivation and reinforces habit strength
             self.self_efficacy = max(0, self.self_efficacy - 2)
             self.motivation = max(0, self.motivation - 2)
+            self.habit_strength = min(10, self.habit_strength + 2)
 
     def apply_stressors(self, stressors: List[Dict[str, Any]]):
         """Applies a list of stressors to the patient's memory."""
@@ -688,20 +692,17 @@ class DialogueState(TypedDict):
 
 DIFFICULTY_DESCRIPTIONS = {
     "easy": (
-        "You are generally willing to accept guidance, open to treatment, "
-        "and cooperative. You still experience cravings and doubts, but "
-        "you tend to respond positively to suggestions."
+        "You are generally receptive to intervention and express willingness to follow coping plans and try alternative behaviors. "
+        "You tend to respond positively to suggestions."
     ),
     "medium": (
-        "You are ambivalent and show some resistance: part of you wants to "
-        "change, but another part wants to keep using. You may agree with "
-        "some ideas and push back on others."
+        "You are ambivalent and show partial resistance. You may agree with "
+        "some strategies, but push back on others."
     ),
     "hard": (
-        "You have long-standing alcohol use and substantial mistrust or "
-        "skepticism about treatment. You often challenge or deflect "
-        "suggestions, emphasize barriers, and may minimize the need for "
-        "change."
+        "You have long-standing alcohol use, entrenched pessimism and low self-efficacy. You doubt your ability to recover "
+        "and have substantial mistrust or skepticism about treatment. You often challenge or deflect "
+        "suggestions, emphasize barriers, and may minimize the need for change."
     ),
 }
 
@@ -741,7 +742,7 @@ def summarize_patient_profile(profile: str) -> str:
     instructions = (
         "Summarize the following patient profile into a concise paragraph. "
         "Focus on the key clinical details: primary issue, substance use history, "
-        "behavioral patterns, and motivations. This summary will be used by a therapist bot "
+        "behavioral patterns, barriers and motivations. This summary will be used by a therapist bot "
         "to maintain context during a conversation."
     )
     summary = call_llm(
@@ -802,7 +803,8 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
     instructions_for_json_output = """
 You are role-playing as a patient in addiction recovery.
 Speak from the profile below, staying consistent with the conversation so far.
-Your difficulty level description explains how resistant or ambivalent you are.
+Your difficulty level description explains how resistant or ambivalent you are to therapist's suggestions. 
+At the beginning of each session, report important events since last session.
 
 Your task is to generate a single JSON object containing three fields: "reply", "summary", and "resolution_status".
 
@@ -912,7 +914,10 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
     session_agenda = _get_session_agenda(session_number)
 
     therapist_instructions_template = """
-You are an expert therapist in a role-play simulation. Your goal is to conduct a therapeutic dialogue with a patient based on their profile summary.
+You are a licensed therapist in a role-play simulation conducting an ongoing course of therapy with a patient who has alcohol addiction. 
+Your goal is to create a detailed, step-by-step conversation with a patient based on their profile summary that incorporates 
+AVAILABLE STRATEGIES below.
+
 You should be empathetic, non-judgmental, and collaborative.
 
 PATIENT SUMMARY:
@@ -1024,12 +1029,15 @@ def environment_agent_node(state: DialogueState) -> Dict[str, Any]:
     patient_memory = state["patient_memory"]
     patient_memory.apply_stressors(selected_stressors)
 
-    # print(f"--- Environment Agent Applied Stressors ---")
-    # print(f"Patient memory state at the START of session {state['session_number']}:")
-    # print(patient_memory.get_summary())
+    print(f"--- Environment Agent Applied Stressors ---")
+    print(f"Patient memory state at the START of session {state['session_number']}:")
+    print(patient_memory.get_summary())
 
     # This node only updates the patient_memory, so we return it
-    return {"patient_memory": patient_memory}
+    return {
+    **state,
+    "patient_memory": patient_memory,
+    }
 
 
 # Graph Routing and Construction
@@ -1085,26 +1093,38 @@ app = graph.compile()
 
 # Example Patient Profile
 example_patient_profile = f"""
-    The user appears to have a tendency towards self-blame ('sitting with how much of a fuck up i was'),
-    impulsivity (struggling with stopping after one drink), and a past tendency towards irritability ('short tempered and didn't have patience').
-    They also display resilience and a desire for change, actively seeking help and new coping mechanisms. There's an underlying restlessness that
-    historically drove them to seek activity or distraction.\nSubstance Use History: The user has a history of alcohol use, with their longest streak
-    of sobriety being 2 weeks in ten years, indicating a long-standing pattern of use. They recently relapsed after 40 days of sobriety and describe
-    'back in the cycle of insanity.' They underwent a 21-day treatment program and attended AA/SMART recovery meetings, but stopped going
-    to the latter. They also attempted to quit multiple times and struggled with cravings even for non-alcoholic beverages resembling alcohol
-    early in sobriety.\nSignificant Life Events: The user reached out to their job for a Leave of Absence (LOA) to go to treatment due to being
-    'SO sad all the time' and feeling like a 'prisoner.' This marked a turning point in seeking help. No other specific major life events like job loss,
-    divorce, or trauma are explicitly mentioned as directly related to the addiction onset.\nBehavioral Themes: The user exhibits patterns of seeking
-    distraction ('constantly trying to distract myself with anything'), difficulty with stillness ('couldn't stand being still'), and using alcohol as
-    a coping mechanism for stress from a 'fast paced rather exhausting job.' Prior to sobriety, they were 'short tempered and didn't have patience for
-    anything or anyone.' During sobriety, they've noted being 'much calmer' and 'more content just sitting around.' They also show a need for
-    'controlled chaos' through activities like concerts. Relapse is a recurring theme, and they struggle with finding alternative routines for relaxation
-    and reward after work.\nMotivations for Alcohol Use: The user drank to cope with stress from their fast-paced job, finding it an 'everyday
-    thing because I would be so stressed out.' Alcohol was also used to socialize and feel happy, making 'things happy and everything was just a fun time.'
-    They also mention 'searching for anything to make me feel better internally' and escaping the feeling of being 'a fuck up.'
-    Boredom was 'excruciating' and led to drinking to avoid internal discomfort.
-    Current Motivation: Wants to reduce use but unsure about abstinence; worried about withdrawal, boredom, and social loss
-
+The user describes themselves as very introverted and struggles with building new relationships. They display significant low self-esteem and
+ self-loathing, evident in statements like 'I can't stand being myself,' 'I can't even look at myself some days,' and feeling 'pathetic, 
+ embarrassing, and a disappointment.' There is a pattern of impulsivity, particularly in giving into 'just one drink' despite knowing they 
+cannot moderate. They express deep shame, guilt, and disappointment, often wallowing in these emotions post-drinking. They perceive themselves 
+as a 'fraud,' projecting an image of having 'their shit together' while struggling internally. They also demonstrate self-awareness of their 
+self-destructive patterns and their inability to moderate.\nAlcohol Use History: The user, currently 25 years old, has been drinking excessively 
+since age 15, a duration of 10 years, characterized by constant binge drinking. They were a daily drinker for almost 2 years, often drinking 
+alone in their room 4-6 times a week, frequently blacking out. Prior to daily drinking, they binge drank every weekend. They have made multiple 
+attempts at sobriety, with the longest recent streak being 29-30 days, but repeatedly relapse, often leading to binge drinking and blackouts 
+They acknowledge an inability to moderate, stating 'it's either 0 drinks or 100 drinks'. They also mention a history of using alcohol to curb 
+appetite, consistent with an eating disorder.\nSignificant Life Events: multiple instances of embarrassment at work-related events, such as 
+getting blackout drunk at a Christmas party and later bawling their eyes out because they couldn't drink at another party, and a recent work lunch where they 
+blacked out and needed coworkers to help them. A traumatic incident involved chipping a front tooth, puking, and being found passed out by 
+their parents at a train station. They report sabotaging numerous platonic and romantic relationships due to their drinking habits and the 
+desire to maintain a false image. They also mention the health impacts related to their eating disorder and alcohol use, stating 'alcohol and 
+restricting almost took me there,' implying severe health risks.\nBehavioral Themes: The user exhibits patterns of extreme social isolation, 
+particularly when drinking, often consuming alcohol alone in their room. They engage in high-risk behaviors while blacked out, such as leaving 
+the house and ending up in unknown locations without memory. Secretive behavior includes sneaking alcohol into the house and hiding/disposing of 
+empty bottles and cans. There's a clear pattern of self-neglect, including poor hygiene, neglecting personal care, and missing work due to 
+hangovers/blackouts. The user struggles with boredom, which acts as a significant trigger for drinking, and relies on alcohol to cope with 
+uncomfortable emotions and social anxiety. They also report severe sleep disturbances, waking up in a state of panic after drinking. There's a 
+dangerous interaction between their drinking and an eating disorder, where alcohol is used to suppress appetite, leading to dangerous weight 
+loss and putting themselves in perilous situations. They actively avoid places with triggers (bars, liquor stores). Relationships are sabotaged 
+due to drinking and a desire to maintain a false image. They express self-punishment and struggle to break cycles of self-destructive behavior.
+\nMotivations for Alcohol Use: The primary motivations for substance use appear to be coping with loneliness, emotional distress, and self-hatred 
+('I drink because I can't tolerate the room and myself especially,' 'I drink alone because I can't stand being myself, I can't even look at 
+myself some days'). Alcohol is also used as an escape mechanism and to numb emotions ('drown them all alcohol'). The user seeks immediate 
+gratification, even knowing long-term negative consequences, and romanticizes the 'ritual' and initial excitement of drinking, chasing a past 
+high. Social anxiety is a strong motivator, as they believe they are 'more likable' or 'fun' when drunk, using alcohol as 'liquid courage.' 
+Boredom is identified as a significant trigger. They also mention seeking 'chaos' and a fantasy of 'living their best life' through drinking, 
+despite repeated negative experiences. There is also a past motivation to use alcohol to curb appetite due to an eating disorder.",
+\n"Barriers to treatment": "Emotional Reliance on Alcohol","Compulsive or Habitual Use","Disrupted Social Support","Fear of Judgment / Stigma".
 """
 
 difficulty_setting = "hard"
@@ -1121,17 +1141,29 @@ sessions_data = []
 patient_memory = PatientMemory()
 
 # Print initial memory state
-# print("--- Initial Patient Memory State (Before Session 1) ---")
-# print(patient_memory.get_summary())
+print("--- Initial Patient Memory State (Before Session 1) ---")
+print(patient_memory.get_summary())
 
-
+# ✅ Apply environment stressors BETWEEN sessions
 for session_number in range(1, 7):
     print(f"--- Running Session #{session_number} ---")
 
     initial_memory_summary = patient_memory.get_summary()
-
+    
     if session_number > 1:
-        environment_agent_node({"session_number": session_number, "patient_memory": patient_memory})
+        state = {
+            "session_number": session_number,
+            "patient_memory": patient_memory,
+        }
+
+        state = environment_agent_node(state)
+
+        assert initial_memory_summary != state["patient_memory"].get_summary(), (
+            "Environment stressors were not applied correctly"
+        )
+
+        # Ensure we keep the mutated memory reference
+        patient_memory = state["patient_memory"]
 
     # Invoke the graph for the current session
     result_state = app.invoke({
@@ -1152,8 +1184,8 @@ for session_number in range(1, 7):
     # Update patient memory with post-session gains
     patient_memory.update_after_session()
 
-    # print(f"\nPatient memory state at the END of session {session_number}:")
-    # print(patient_memory.get_summary())
+    print(f"\nPatient memory state at the END of session {session_number}:")
+    print(patient_memory.get_summary())
 
 
     # Get the unique strategies used in this session
@@ -1189,6 +1221,7 @@ output_data = {
     "patient_profile": example_patient_profile.strip(),
     "difficulty": difficulty_setting,
     "sessions": sessions_data,
+    "stressors": patient_memory.get_summary()
 }
 
 # Save JSON file
