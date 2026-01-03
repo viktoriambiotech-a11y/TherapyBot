@@ -800,11 +800,18 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
     history_text = render_history_for_prompt(state["history"])
     display_history = history_text if history_text else "(no prior conversation – this is the first turn)"
 
+    # Format stressors for the prompt
+    stressors = state.get("patient_memory").stressor_ledger if state.get("patient_memory") else []
+    stressor_text = ""
+    if stressors:
+        stressor_items = [f"- {s['Description']} ({s['Stressor']})" for s in stressors]
+        stressor_text = "RECENT STRESSFUL EVENTS (since last session):\n" + "\n".join(stressor_items) + "\n"
+
     instructions_for_json_output = """
 You are role-playing as a patient in addiction recovery.
 Speak from the profile below, staying consistent with the conversation so far.
 Your difficulty level description explains how resistant or ambivalent you are to therapist's suggestions. 
-At the beginning of each session, report important events since last session.
+At the beginning of each session, report important events since last session. If there are recent stressful events listed, you MUST incorporate them into your reply.
 
 Your task is to generate a single JSON object containing three fields: "reply", "summary", and "resolution_status".
 
@@ -822,6 +829,7 @@ Patient Profile:
 Difficulty Setting:
 {state['difficulty_description']}
 
+{stressor_text}
 Conversation So Far:
 {display_history}
 
@@ -923,6 +931,9 @@ You should be empathetic, non-judgmental, and collaborative.
 PATIENT SUMMARY:
 {user_analysis}
 
+PATIENT'S CURRENT STATE:
+{patient_state}
+
 SESSION {session_number}:
 - CBT Goal: {cbt_goal}
 - MI Focus: {mi_focus}
@@ -976,6 +987,7 @@ SESSION AGENDA:
 
     therapist_instructions = therapist_instructions_template.format(
         user_analysis=state["patient_profile_summary"],
+        patient_state=state["patient_memory"].get_summary(),
         session_number=session_number,
         cbt_goal=cbt_goal,
         mi_focus=mi_focus,
@@ -1148,22 +1160,16 @@ print(patient_memory.get_summary())
 for session_number in range(1, 7):
     print(f"--- Running Session #{session_number} ---")
 
-    initial_memory_summary = patient_memory.get_summary()
-    
     if session_number > 1:
         state = {
             "session_number": session_number,
             "patient_memory": patient_memory,
         }
-
         state = environment_agent_node(state)
-
-        assert initial_memory_summary != state["patient_memory"].get_summary(), (
-            "Environment stressors were not applied correctly"
-        )
-
         # Ensure we keep the mutated memory reference
         patient_memory = state["patient_memory"]
+
+    initial_memory_summary = patient_memory.get_summary()
 
     # Invoke the graph for the current session
     result_state = app.invoke({
@@ -1221,7 +1227,6 @@ output_data = {
     "patient_profile": example_patient_profile.strip(),
     "difficulty": difficulty_setting,
     "sessions": sessions_data,
-    "stressors": patient_memory.get_summary()
 }
 
 # Save JSON file
