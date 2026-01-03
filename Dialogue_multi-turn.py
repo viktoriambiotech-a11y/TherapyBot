@@ -564,29 +564,31 @@ ENVIRONMENT_STRESSORS = [
 
 ]
 
+def clamp(value, min_value, max_value):
+    """Clamps a value between a minimum and maximum."""
+    return max(min_value, min(value, max_value))
+
 import math
 
 class PatientMemory:
     """A class to manage the patient's evolving state across sessions."""
     def __init__(self):
-        self.craving_level = 5
+        self.craving = 3
         self.trigger_salience = 5
-        self.motivation = 5
-        self.self_efficacy = 5
+        self.motivation = 3
+        self.confidence = 3
         self.cognitive_control = 5
-        self.habit_strength = 5
         self.lapse_flag = False
         self.stressor_ledger = [] # To track stressors between sessions
 
     def get_summary(self) -> str:
         """Returns a string summary of the patient's current memory state."""
         summary = (
-            f"  - Craving Level: {self.craving_level}/10\n"
+            f"  - Craving: {self.craving}/5\n"
             f"  - Trigger Salience/Stress: {self.trigger_salience}/10\n"
-            f"  - Motivation: {self.motivation}/10\n"
-            f"  - Self-Efficacy/Confidence: {self.self_efficacy}/10\n"
+            f"  - Motivation: {self.motivation}/5\n"
+            f"  - Confidence: {self.confidence}/5\n"
             f"  - Cognitive Control/Adherence: {self.cognitive_control}/10\n"
-            f"  - Habit Strength: {self.habit_strength}/10\n"
             f"  - Recent Lapse: {'Yes' if self.lapse_flag else 'No'}"
         )
         if self.stressor_ledger:
@@ -595,29 +597,17 @@ class PatientMemory:
                 summary += f"    - {stressor['Stressor']}: {stressor['Description']}\n"
         return summary
 
-    def update_after_session(self):
-        """Updates memory to reflect gains from a therapy session."""
-        self.motivation = min(10, self.motivation + 1)
-        self.self_efficacy = min(10, self.self_efficacy + 1)
-        self.cognitive_control = min(10, self.cognitive_control + 1)
-        self.trigger_salience = max(0, self.trigger_salience - 1)
-
-        # Reset inter-session state
-        self.stressor_ledger = []
-        self.lapse_flag = False
-
     def _calculate_lapse_probability(self) -> float:
         """Calculates the probability of a lapse based on current memory state."""
         # Define weights for the logistic regression model
-        w1, w2, w3, w4, w5, w6 = 0.3, 0.2, 0.2, 0.1, 0.1, 0.3 # Example weights
+        w1, w2, w3, w4, w5 = 0.3, 0.2, 0.2, 0.1, 0.1 # Example weights
 
-        # Calculate the weighted sum
-        z = (w1 * self.craving_level +
+        # Calculate the weighted sum, scaling 1-5 variables to 1-10 for compatibility
+        z = (w1 * self.craving * 2 +
              w2 * self.trigger_salience -
-             w3 * self.self_efficacy -
+             w3 * self.confidence * 2 -
              w4 * self.cognitive_control -
-             w5 * self.motivation +
-             w6 * self.habit_strength)
+             w5 * self.motivation * 2)
 
         # Apply the sigmoid function to get a probability
         probability = 1 / (1 + math.exp(-z))
@@ -628,10 +618,9 @@ class PatientMemory:
         lapse_probability = self._calculate_lapse_probability()
         if random.random() < lapse_probability:
             self.lapse_flag = True
-            # A lapse temporarily reduces self-efficacy and motivation and reinforces habit strength
-            self.self_efficacy = max(0, self.self_efficacy - 2)
-            self.motivation = max(0, self.motivation - 2)
-            self.habit_strength = min(10, self.habit_strength + 2)
+            # A lapse temporarily reduces confidence and motivation
+            self.confidence = max(1, self.confidence - 1)
+            self.motivation = max(1, self.motivation - 1)
 
     def apply_stressors(self, stressors: List[Dict[str, Any]]):
         """Applies a list of stressors to the patient's memory."""
@@ -640,16 +629,16 @@ class PatientMemory:
             category = stressor.get("Category", "")
             if category == "Social/Environmental":
                 self.trigger_salience = min(10, self.trigger_salience + 1)
-                self.craving_level = min(10, self.craving_level + 1)
+                self.craving = min(5, self.craving + 1)
             elif category == "Interpersonal":
                 self.trigger_salience = min(10, self.trigger_salience + 2)
             elif category == "Work/Academic":
-                self.self_efficacy = max(0, self.self_efficacy - 1)
+                self.confidence = max(1, self.confidence - 1)
             elif category == "Emotional/Cognitive":
-                self.craving_level = min(10, self.craving_level + 1)
-                self.motivation = max(0, self.motivation - 1)
+                self.craving = min(5, self.craving + 1)
+                self.motivation = max(1, self.motivation - 1)
             elif category == "Physical/Biological":
-                self.self_efficacy = max(0, self.self_efficacy - 1)
+                self.confidence = max(1, self.confidence - 1)
             elif category == "Life Events":
                 self.trigger_salience = min(10, self.trigger_salience + 2)
 
@@ -1030,6 +1019,139 @@ SESSION AGENDA:
     }
 
 
+SCORER_SYSTEM_PROMPT = """
+You are a clinical evaluation agent trained in Motivational Interviewing (MI)
+and Cognitive Behavioral Therapy (CBT).
+
+Your task is to evaluate a patient–therapist dialogue and score the patient’s:
+
+1. MOTIVATION to reduce or abstain from substance use
+2. CONFIDENCE (self-efficacy) in their ability to carry out coping plans
+
+You MUST:
+- Use the rubric definitions provided below
+- Assign integer scores from 1 to 5
+- Cite direct evidence from the dialogue for each score
+- Output only valid JSON
+- Do NOT provide therapy or advice
+
+MOTIVATION RUBRIC (MI-Anchored)
+
+Definition:
+Motivation reflects the patient’s readiness, desire, and commitment to reduce or abstain from substance use and to engage in a change plan.
+
+Score	Anchor (MI Theory)
+1	Sustained resistance, defends use, no intent to change
+2	Ambivalence dominates; recognizes problem but resists action
+3	Mixed change talk; expresses desire or reasons but no commitment
+4	Clear commitment language; agrees to a plan or next step
+5	Strong commitment and activation; independently initiates steps
+
+Key MI signals to look for:
+⦁	Desire (“I want to…”, “I wish I could…”)
+⦁	Ability (“I think I could…”, “I can try…”)
+⦁	Reasons / Need
+⦁	Commitment (“I will…”, “I’m ready to…”)
+
+CONFIDENCE RUBRIC (CBT + Self-Efficacy)
+
+Definition:
+Confidence reflects the patient’s belief in their ability to resist triggers, manage cravings, and execute coping strategies.
+
+Score	Anchor (CBT / Self-Efficacy)
+1	Feels helpless; expects failure
+2	Low confidence; vague or externalized coping
+3	Partial confidence; understands skills but unsure
+4	High confidence; articulates coping strategies
+5	Strong self-efficacy; rehearses and adapts strategies
+
+Key CBT signals to look for:
+⦁	Trigger identification
+⦁	Coping skill articulation
+⦁	Behavioral rehearsal
+⦁	Cognitive reframing
+⦁	Reduced catastrophizing
+"""
+
+
+def run_rubric_scorer(dialogue: List[Dict[str, str]], patient_state: PatientMemory) -> Dict[str, Any]:
+    """
+    Evaluates the dialogue and returns motivation and confidence scores.
+    """
+    dialogue_text = render_history_for_prompt(dialogue)
+    patient_state_dict = {
+        "motivation": patient_state.motivation,
+        "confidence": patient_state.confidence,
+        "craving": patient_state.craving,
+        "lapse_flag": patient_state.lapse_flag,
+    }
+
+    prompt = f"""
+INPUT:
+{{
+  "dialogue": "{dialogue_text}",
+  "prior_patient_state": {json.dumps(patient_state_dict)}
+}}
+
+OUTPUT FORMAT (STRICT):
+{{
+  "motivation": {{
+    "score": <integer>,
+    "evidence": ["<string>", ...]
+  }},
+  "confidence": {{
+    "score": <integer>,
+    "evidence": ["<string>", ...]
+  }}
+}}
+"""
+
+    response_str = call_llm(
+        model=MODEL_THERAPIST,
+        instructions=SCORER_SYSTEM_PROMPT,
+        input_text=prompt,
+        max_output_tokens=512,
+    )
+
+    try:
+        # The response might be enclosed in markdown ```json ... ```
+        if response_str.startswith("```json"):
+            response_str = response_str[7:-4]
+        scores = json.loads(response_str)
+    except (json.JSONDecodeError, AttributeError) as e:
+        print(f"--- ERROR PARSING SCORER JSON RESPONSE ---")
+        print(f"Failed to parse JSON: {e}")
+        print(f"Raw response: {response_str}")
+        # Fallback to avoid crashing
+        scores = {
+            "motivation": {"score": patient_state.motivation, "evidence": ["Error parsing scorer response."]},
+            "confidence": {"score": patient_state.confidence, "evidence": ["Error parsing scorer response."]},
+        }
+
+    return scores
+
+
+def patient_state_update(patient_memory: PatientMemory, scorer_output: Dict[str, Any]) -> PatientMemory:
+    """Updates the patient's memory based on the scorer's output."""
+    patient_memory.motivation = clamp(
+        patient_memory.motivation + scorer_output["delta_motivation"], 1, 5
+    )
+
+    patient_memory.confidence = clamp(
+        patient_memory.confidence + scorer_output["delta_confidence"], 1, 5
+    )
+
+    # Confidence buffers craving
+    if patient_memory.confidence >= 4:
+        patient_memory.craving = max(patient_memory.craving - 1, 1)
+
+    # Low confidence + high craving triggers lapse risk
+    if patient_memory.confidence <= 2 and patient_memory.craving >= 4:
+        patient_memory.lapse_flag = True
+
+    return patient_memory
+
+
 def environment_agent_node(state: DialogueState) -> Dict[str, Any]:
     """
     Simulates environmental stressors affecting the patient between sessions.
@@ -1187,8 +1309,14 @@ for session_number in range(1, 7):
         "patient_memory": patient_memory,
     }, config={"recursion_limit": 200})
 
-    # Update patient memory with post-session gains
-    patient_memory.update_after_session()
+    # Score the session and update patient memory
+    scores = run_rubric_scorer(result_state["history"], patient_memory)
+    scorer_output = {
+        "delta_motivation": scores["motivation"]["score"] - patient_memory.motivation,
+        "delta_confidence": scores["confidence"]["score"] - patient_memory.confidence,
+        "raw_scores": scores
+    }
+    patient_memory = patient_state_update(patient_memory, scorer_output)
 
     print(f"\nPatient memory state at the END of session {session_number}:")
     print(patient_memory.get_summary())
