@@ -7,6 +7,7 @@ Recreates a multi-session, multi-turn role-play setup:
  - Patient Agent Node: Maintains internal state vector, Reports subjective experience, Makes decisions via State Update Node (relapse/no relapse)
  - State Update Node (Non-LLM): Applies equations, Updates state deterministically
  - Environment Node: Samples stressors, Updates stressor ledger
+ - Scorer Node: Scores and updates Motivation and Confidence variables at the end of the session by evaluating the dialogue and outputs
 
 """
 
@@ -72,7 +73,7 @@ MI_STRATEGIES = [
         "description": (
             "Ask about what kind of person they want to be, their core "
             "values (e.g., family, health), and connect those values to "
-            "possible changes in alcohol use."
+            "making changes in alcohol use."
         ),
     },
     {
@@ -362,10 +363,9 @@ ENVIRONMENT_STRESSORS = [
     "Stressor": "Drinking-centered events",
     "Description": "Attended an event where alcohol was central",
     "Severity": "2",
-    "Likely Duration": "Hours-Days"
+    "Likely Duration": "Hours"
   },
-  {
-    "Category": "Social/Environmental",
+  {    "Category": "Social/Environmental",
     "Stressor": "Lack of social support",
     "Description": "No one to call when cravings hit",
     "Severity": "2",
@@ -376,7 +376,7 @@ ENVIRONMENT_STRESSORS = [
     "Stressor": "Social isolation",
     "Description": "Spent the weekend alone with no plans",
     "Severity": "3",
-    "Likely Duration": "Days–Weeks"
+    "Likely Duration": "Days"
   },
 
   {
@@ -497,16 +497,9 @@ ENVIRONMENT_STRESSORS = [
   {
     "Category": "Life Events",
     "Stressor": "Major transitions",
-    "Description": "Moving to a new job / new city",
+    "Description": "Moving to a new city",
     "Severity": "2",
     "Likely Duration": "Weeks–Months"
-  },
-  {
-    "Category": "Life Events",
-    "Stressor": "Bereavement",
-    "Description": "Death of a loved one",
-    "Severity": "3",
-    "Likely Duration": "Months"
   },
 
   {
@@ -518,21 +511,21 @@ ENVIRONMENT_STRESSORS = [
   },
 
   {
-    "Category": "Treatment/Recovery",
-    "Stressor": "Negative treatment experience",
-    "Description": "Felt judged by clinician",
-    "Severity": "2",
-    "Likely Duration": "Weeks–Months"
+    "Category": "Supportive events",
+    "Stressor": "Social support",
+    "Description": "Positive and encouraging interaction with a friend or family member",
+    "Severity": "3",
+    "Likely Duration": "Hours–Weeks"
   },
  {
-    "Category": "Treatment/Recovery",
+    "Category": "Supportive events",
     "Stressor": "Successful refusal",
     "Description": "Refused a drink",
     "Severity": "3",
     "Likely Duration": "Hours–Days"
   },
  {
-    "Category": "Treatment/Recovery",
+    "Category": "Supportive events",
     "Stressor": "Successful use of coping strategy",
     "Description": "Did not act on an urge to drink by using a coping strategy",
     "Severity": "3",
@@ -600,7 +593,7 @@ class PatientMemory:
     def _calculate_lapse_probability(self) -> float:
         """Calculates the probability of a lapse based on current memory state."""
         # Define weights for the logistic regression model
-        w1, w2, w3, w4, w5 = 0.3, 0.2, 0.2, 0.1, 0.1 # Example weights
+        w1, w2, w3, w4, w5 = 0.2, 0.2, 0.2, 0.1, 0.1 # Example weights
 
         # Calculate the weighted sum, scaling 1-5 variables to 1-10 for compatibility
         z = (w1 * self.craving * 2 +
@@ -641,6 +634,10 @@ class PatientMemory:
                 self.confidence = max(1, self.confidence - 1)
             elif category == "Life Events":
                 self.trigger_salience = min(10, self.trigger_salience + 2)
+            elif category == "Supportive events":
+                self.motivation = max(1, self.motivation + 1)
+                self.confidence = max(1, self.confidence + 1)
+
 
         self.check_for_lapse()
 
@@ -681,7 +678,8 @@ class DialogueState(TypedDict):
 
 DIFFICULTY_DESCRIPTIONS = {
     "easy": (
-        "You are generally receptive to intervention and express willingness to follow coping plans and try alternative behaviors. "
+        "You are motivated to make a change andgenerally receptive to intervention. "
+        "You express willingness to follow coping plans and try alternative behaviors. "
         "You tend to respond positively to suggestions."
     ),
     "medium": (
@@ -689,7 +687,7 @@ DIFFICULTY_DESCRIPTIONS = {
         "some strategies, but push back on others."
     ),
     "hard": (
-        "You have long-standing alcohol use, entrenched pessimism and low self-efficacy. You doubt your ability to recover "
+        "You have long-standing alcohol use, entrenched pessimism about recovery and low self-efficacy. You doubt your ability to recover "
         "and have substantial mistrust or skepticism about treatment. You often challenge or deflect "
         "suggestions, emphasize barriers, and may minimize the need for change."
     ),
@@ -800,7 +798,7 @@ def patient_node(state: DialogueState) -> Dict[str, Any]:
 You are role-playing as a patient in addiction recovery.
 Speak from the profile below, staying consistent with the conversation so far.
 Your difficulty level description explains how resistant or ambivalent you are to therapist's suggestions. 
-At the beginning of each session, report important events since last session. If there are recent stressful events listed, you MUST incorporate them into your reply.
+At the beginning of each session, report important events since last session. If there were stressful events (stressors) or supportive events since the last session, you MUST incorporate them into your reply.
 
 Your task is to generate a single JSON object containing three fields: "reply", "summary", and "resolution_status".
 
@@ -869,7 +867,7 @@ def _get_session_agenda(session_number: int) -> str:
     Generates the therapist's agenda for a given session.
     """
     if session_number == 1:
-        intro = "review values, quit/cut-down intent and collaboratively select today’s top three items to discuss"
+        intro = "review values, therapy goals (quit/cut-down) and collaboratively select today’s top three items to discuss"
     else:
         intro = "review events, stressors, cravings, or challenges that occurred since the previous session and collaboratively select today’s top three items to discuss"
 
@@ -878,7 +876,9 @@ Your agenda for this session (S{session_number}) is as follows:
 1. rapport & goal alignment ({intro}).
 2. episode clarification (perform functional analysis of a recent use/near-use: antecedents, triggers, craving peak, consequences)
 3. plan formulation (translate insights from episode analysis into one or two actionable steps)
-4. next-step micro-commitment. Each session ends with a concrete, time-bounded micro-assignment for the patient tied to risk and feasibility (for example: trigger/urge log (time, place, people, intensity),  a three-line coping card for an anticipated window, a single refusal-line rehearsal with a specific peer, a stimulus-control action (remove a procurement contact/app)).
+4. next-step micro-commitment. Each session ends with a concrete, time-bounded micro-assignment for the patient tied to risk and feasibility. 
+For example: trigger/urge log (time, place, people, intensity),  a three-line coping card for an anticipated window, a single refusal-line 
+rehearsal with a specific peer, a stimulus-control action (remove a procurement contact/app).
 """
     return agenda
 
@@ -912,7 +912,7 @@ def therapist_node(state: DialogueState) -> Dict[str, Any]:
 
     therapist_instructions_template = """
 You are a licensed therapist in a role-play simulation conducting an ongoing course of therapy with a patient who has alcohol addiction. 
-Your goal is to create a detailed, step-by-step conversation with a patient based on their profile summary that incorporates 
+Your goal is to create a detailed, step-by-step conversation with a patient based on their profile and current state that incorporates 
 AVAILABLE STRATEGIES below.
 
 You should be empathetic, non-judgmental, and collaborative.
@@ -988,7 +988,7 @@ SESSION AGENDA:
         session_agenda=session_agenda,
     )
 
-    # The user prompt is now just a trigger to generate the response based on the system prompt.
+    # The user prompt is a trigger to generate the response based on the system prompt.
     therapist_prompt = "Therapist:"
 
     full_response = call_llm(
