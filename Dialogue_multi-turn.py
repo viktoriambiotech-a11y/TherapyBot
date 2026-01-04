@@ -1146,10 +1146,6 @@ def patient_state_update(patient_memory: PatientMemory, scorer_output: Dict[str,
     if patient_memory.confidence >= 4:
         patient_memory.craving = max(patient_memory.craving - 1, 1)
 
-    # Low confidence + high craving triggers lapse risk
-    if patient_memory.confidence <= 2 and patient_memory.craving >= 4:
-        patient_memory.lapse_flag = True
-
     return patient_memory
 
 
@@ -1168,10 +1164,11 @@ def environment_agent_node(state: DialogueState) -> Dict[str, Any]:
         sessions_active = session_number - session_added
 
         remove = False
-        if "minute" in duration or "hour" in duration or "day" in duration:
+        # Handle cases like "Days–Weeks" by checking for specific keywords.
+        if "minute" in duration or "hour" in duration or "day" in duration and "week" not in duration and "month" not in duration:
             if sessions_active >= 1:
                 remove = True
-        elif "week" in duration:
+        elif "week" in duration and "month" not in duration:
             if sessions_active >= 3:
                 remove = True
         elif "month" in duration:
@@ -1390,3 +1387,12 @@ with open(output_path, "w", encoding="utf-8") as f:
     json.dump(output_data, f, indent=2)
 
 print(f"Saved dialogue to {output_path}")
+
+# Print the rubric scores for all sessions
+print("\n--- Final Rubric Scores ---")
+for session_data in sessions_data:
+    session_number = session_data["session_number"]
+    rubric_scores = session_data["rubric_scores"]
+    print(f"\nSession {session_number}:")
+    print(f"  Motivation: {rubric_scores['motivation']['score']}")
+    print(f"  Confidence: {rubric_scores['confidence']['score']}")
