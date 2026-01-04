@@ -622,10 +622,11 @@ class PatientMemory:
             self.confidence = max(1, self.confidence - 1)
             self.motivation = max(1, self.motivation - 1)
 
-    def apply_stressors(self, stressors: List[Dict[str, Any]]):
+    def apply_stressors(self, stressors: List[Dict[str, Any]], session_number: int):
         """Applies a list of stressors to the patient's memory."""
-        self.stressor_ledger.extend(stressors)
         for stressor in stressors:
+            stressor["session_added"] = session_number
+            self.stressor_ledger.append(stressor)
             category = stressor.get("Category", "")
             if category == "Social/Environmental":
                 self.trigger_salience = min(10, self.trigger_salience + 1)
@@ -1156,12 +1157,38 @@ def environment_agent_node(state: DialogueState) -> Dict[str, Any]:
     """
     Simulates environmental stressors affecting the patient between sessions.
     """
+    patient_memory = state["patient_memory"]
+    session_number = state["session_number"]
+
+    # --- Stressor Removal Logic ---
+    updated_stressor_ledger = []
+    for stressor in patient_memory.stressor_ledger:
+        duration = stressor.get("Likely Duration", "").lower()
+        session_added = stressor.get("session_added", session_number)
+        sessions_active = session_number - session_added
+
+        remove = False
+        if "minute" in duration or "hour" in duration or "day" in duration:
+            if sessions_active >= 1:
+                remove = True
+        elif "week" in duration:
+            if sessions_active >= 3:
+                remove = True
+        elif "month" in duration:
+            # Stressors with "Months" duration are not removed
+            pass
+
+        if not remove:
+            updated_stressor_ledger.append(stressor)
+    patient_memory.stressor_ledger = updated_stressor_ledger
+    # --- End Stressor Removal ---
+
+
     # Randomly select 1 to 3 stressors to apply
     num_stressors = random.randint(1, 3)
     selected_stressors = random.sample(ENVIRONMENT_STRESSORS, num_stressors)
 
-    patient_memory = state["patient_memory"]
-    patient_memory.apply_stressors(selected_stressors)
+    patient_memory.apply_stressors(selected_stressors, session_number)
 
     print(f"--- Environment Agent Applied Stressors ---")
     print(f"Patient memory state at the START of session {state['session_number']}:")
@@ -1333,6 +1360,7 @@ for session_number in range(1, 7):
         "dialogue": result_state["history"],
         "patient_memory_final": patient_memory.get_summary(),
         "strategies_used": strategies_this_session,
+        "rubric_scores": scorer_output["raw_scores"],
     }
     sessions_data.append(session_data)
 
@@ -1342,7 +1370,7 @@ for session_number in range(1, 7):
     print(f"\n--- Session {session_number} Complete ---\n")
 
 # Set output directory
-output_dir = "C:\\Users\\vikto\\RecoveryBot Project"
+output_dir = "."
 os.makedirs(output_dir, exist_ok=True)
 
 # Create timestamped filename inside output directory
