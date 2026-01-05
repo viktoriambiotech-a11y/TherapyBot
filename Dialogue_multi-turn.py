@@ -1382,6 +1382,14 @@ output_data = {
     "sessions": sessions_data,
 }
 
+# Add the rubric scores from the final session to the top level of the output
+if sessions_data:
+    final_scores = sessions_data[-1].get("rubric_scores", {})
+    if "motivation" in final_scores:
+        output_data["motivation"] = final_scores["motivation"]
+    if "confidence" in final_scores:
+        output_data["confidence"] = final_scores["confidence"]
+
 # Save JSON file
 with open(output_path, "w", encoding="utf-8") as f:
     json.dump(output_data, f, indent=2)
