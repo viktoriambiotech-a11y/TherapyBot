@@ -5,7 +5,7 @@ Multiturn Therapeutic Dialogues Generation
 Recreates a multi-session, multi-turn role-play setup:
  - Therapist Agent Node: Reads patient state + stressor ledger, Chooses intervention style, Generates dialogue
  - Patient Agent Node: Maintains internal state vector, Reports subjective experience, Makes decisions via State Update Node (relapse/no relapse)
- - State Update Node (Non-LLM): Applies equations, Updates state deterministically
+ - State Update Node (Non-LLM): Applies sigmoid probability function that is calculating the probability of relapse, Updates state deterministically
  - Environment Node: Samples stressors, Updates stressor ledger
  - Scorer Node: Scores and updates Motivation and Confidence variables at the end of the session by evaluating the dialogue and outputs
 
